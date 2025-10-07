@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mexlify</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-notify/dist/simple-notify.css" />
+    <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/simple-notify/dist/simple-notify.min.js"></script>
+</head>
+
+<body>
+    <!-- Spinner Overlay -->
+    <div id="spinner-overlay">
+        <img src="logo.png" alt="Logo de mi app" class="app-logo">
+        <div class="spinner"></div>
+    </div>
+    <!-- Navbar Liquid Glass -->
+    <nav class="navbar glassy">
+        <div class="nav-left">
+            <!-- img src="resources/logonb.png" alt="Mexlify Logo" class="nav-logo" -->
+            <span class="nav-title company-name">MEXLIFY</span>
+        </div>
+        <div class="nav-right">
+            <a href="#home">Inicio</a>
+            <a id="searchTab" href="#search">Buscar</a>
+            <a id="downloadsTab" href="#downloads">Fuera de línea</a>
+            <a id="settingsTab" href="#settings">Ajustes</a>
+        </div>
+    </nav>
+    <div id="app">
+        <div class="vaen-cards-container">
+            <!-- Header de bienvenida -->
+            <div class="vaen-card ListHeader vaen-card-bg1" ->
+                <h1>¡Bienvenido a Mexlify!</h1>
+                <p style="font-family: 'Poppins', sans-serif; font-size: 18px; color: #888; text-align: center;">Escucha
+                    tus canciones favoritas sin anuncios.</p>
+            </div>
+            <div class="vaen-card ListHeader vaen-card-bg2">
+                <h1>Más escuchadas del país</h1>
+                <p>Top 50 de México</p>
+                <button id="btnCountryMixB" class="vaen-play-btn" onclick="playCountry('mexico', 'month')">▶</button>
+
+            </div>
+            <div class="vaen-card ListHeader vaen-card-bg3">
+                <h1>Playlist del Día</h1>
+                <p>Las más escuchadas del día</p>
+                <button id="btnCountryMixA" class="vaen-play-btn" onclick="playCountry('global', 'day')">▶</button>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <!-- Menú lateral -->
+            <aside class="sidebar">
+                <h3>Menú</h3>
+                <ul>
+                    <li class="menu-link-glass disabled">Favoritos</li>
+                    <li class="menu-link-glass disabled">Recientes</li>
+                    <li class="menu-link-glass"><a target="_blank"
+                            href="https://discord.com/invite/hpRMKdqWRy">Soporte</a></li>
+                </ul>
+                <hr>
+                <ul>
+                    <li id="ThemesBtn" class="menu-link-glass disabled">Temas</li>
+                    <li id="ContributionsBtn" class="menu-link-glass disabled">Contribuciones</li>
+                    <li id="messagesBtn" class="menu-link-glass disabled">Mensajes</li>
+                </ul>
+                <button id="backtop" class="backtop" style="visibility: hidden;">VOLVER AL TOP</button>
+            </aside>
+
+            <!-- Columna central: buscador + resultados -->
+            <section class="content glass-box">
+                <!-- Barra de búsqueda -->
+                <div id="searchBar" style="position: relative; width: 60%; margin-bottom: 20px;">
+                    <input id="searchInput" placeholder="Buscar canción">
+                    <span class="searchIcon">🔍</span>
+                </div>
+
+                <!-- Resultados -->
+                <div class="tab-content">
+                    <!-- Pestaña Buscar -->
+                    <div id="searchContainer">
+                        <div class="ListHeader">
+                            <h2>Resultados</h2>
+                        </div>
+                        <ul id="resultsList">
+                            <!-- Aquí se cargarán los resultados -->
+                        </ul>
+                    </div>
+
+                    <!-- Pestaña Descargas -->
+                    <div id="downloadsContainer" style="display:none;">
+                        <div class="ListHeader">
+                            <h2>Fuera de línea</h2>
+                        </div>
+                        <ul id="downloadsList">
+                            <!-- Aquí se cargarán las descargas -->
+                        </ul>
+                    </div>
+                    <div id="settings" style="display: none;">
+                        <div class="ListHeader">
+                            <h2>Ajustes</h2>
+                        </div>
+                        <div class="tabsSettings">
+                            <button class="tablinkSettings" onclick="settings.openTab('tabGeneral', this)"
+                                id="defaultTab">General</button>
+                            <button class="tablinkSettings" onclick="settings.openTab('tabTheme', this)">Tema</button>
+                        </div>
+                        <div id="tabGeneral" style="display: none;">
+                            <div id="autoPlayRandom" class="settings-option">
+                                <div class="glass-control-ra">
+                                    <label for="autoplay" class="glass-label-ra">Reproducción automática</label>
+                                    <br>
+                                    <small class="small-ra">Si está activado, al terminar una canción se reproducirá
+                                        automaticamente otra canción aleatoria.</small>
+                                    <label class="switch-ra">
+                                        <input class="checkbox-ra" type="checkbox" id="autoplay" name="autoplay"
+                                            checked>
+                                        <span class="slider-ra"></span>
+                                    </label>
+                                    <hr>
+                                    <small class="small-ra" style="color: #888;">Algunos cambios solo surten efecto
+                                        despues de reiniciar la aplicación.</small>
+                                </div>
+                            </div>
+                            <hr>
+                            <div id="quality-audio">
+                                <div class="glass-control-ra">
+                                    <label for="audioQuality" class="glass-label-ra">Calidad de audio</label>
+                                    <br>
+                                    <small class="small-ra">Selecciona la calidad de audio predeterminada para la
+                                        reproducción.</small>
+                                    <select id="audioQuality" name="audioQuality" class="glass-audio-quality">
+                                        <option value="low" disabled>Baja (64 kbps)</option>
+                                        <option value="medium" disabled>Media (128 kbps)</option>
+                                        <option value="high" selected>Alta (256 kbps)</option>
+                                    </select>
+                                    <hr>
+                                    <span class="small-ra" style="color:#888">La reproducción se reproducira en la mejor
+                                        calidad disponible. Por el momento,
+                                        solo se admite la calidad alta.</span>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="appVoice" class="settings-option">
+                                <div class="glass-control-ra">
+                                    <label for="appVoiceSelect" class="glass-label-ra">Voz de la aplicación <small
+                                            class="small-info">(BETA)</small></label>
+                                    <br>
+                                    <button id="toggleVoiceBtn" class="changeBg">Activar</button><br>
+                                    <small class="small-info" id="voiceLabel">Voz desactivada</small>
+                                    <small class="small-ra">Selecciona la voz que usará la aplicación para los
+                                        mensajes de voz.</small>
+                                    <select id="appVoiceSelect" name="appVoiceSelect" class="glass-audio-quality">
+                                        <option value="spanish">Español (México)</option>
+                                    </select>
+                                    <hr>
+                                    <span class="small-ra" style="color:#888">Puedes probar la voz seleccionada
+                                        haciendo clic en el botón "Probar Voz".</span><br>
+                                    <button id="testVoiceBtn" class="changeBg">Probar Voz</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="tabTheme" style="display: none;">
+                            <div class="settings-option">
+                                <label for="backgroundIMGonPlayCard">Fondo en la tarjeta de reproducción</label>
+                                <br>
+                                <small class="small-info">Si está desactivado, el fondo de la tarjeta de
+                                    reproducción
+                                    será
+                                    un color sólido.</small><br>
+                                <input id="imgInput" class="bgInput" placeholder="Pega la URL aquí"><br>
+                                <button id="setImgBtn" class="changeBg">Cambiar Fondo</button>
+                                <button id="removeImgBtn" class="changeBg">Eliminar Fondo</button>
+                            </div>
+                            <hr>
+                            <div class="settings-option">
+                                <label for="backgroundIMGonCenter">Panel central</label>
+                                <br>
+                                <small class="small-info">Si no hay una url, se usará un color de fondo
+                                    predeterminado.</small><br>
+                                <input id="bgInput" class="bgInput" placeholder="Pega la URL aquí"><br>
+                                <button id="changeBg" class="changeBg">Cambiar Fondo</button>
+                                <button id="removeBg" class="changeBg">Eliminar Fondo</button>
+                            </div>
+                            <hr>
+                            <div class="theme">
+                                <div class="controls-theme">
+                                    <div id="gradientControls">
+                                        <label for="headerGradient" class="headerGradient">Tema (Fondo
+                                            degradado)</label>
+                                        <div class="color-inputs">
+                                            <label>Principal: </label><input type="color" id="color1" value="#080014">
+                                            <label>Secundario: </label><input type="color" id="color2" value="#080014">
+                                        </div>
+                                        <button class="changeBg"
+                                            onclick="gradientController.setGradient()">Actualizar</button>
+                                        <button class="changeBg" id="getCurrentGradientBtn"
+                                            onclick="gradientController.logCurrentGradient(false)">Obtener
+                                            Actual</button>
+                                        <button class="changeBg" id="resetGradientBtn"
+                                            onclick="gradientController.logCurrentGradient(true)">Restablecer</button>
+                                    </div>
+                                    <hr>
+                                    <span class="small-info">Recomendamos colores oscuros para un mejor
+                                        contraste.</span>
+                                </div>
+                            </div>
+                            <div id="sidebarElements" class="settings-option">
+                                <!-- Opciones de elementos para la barra lateral del reproductor -->
+
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Pestaña Cola de reproducción -->
+                    <div id="queuetab" class="vaen-queue-container" style="display: none;">
+                        <h3>Lista de Reproducción</h3>
+                        <ul id="queueList"></ul>
+                    </div>
+
+
+                    <div id="country-top-container" style="display: none;">
+
+                    </div>
+                </div>
+                <div id="artistRecommends"></div>
+            </section>
+
+            <!-- Columna derecha: Player -->
+            <aside class="player-area">
+                <div id="playerContainer">
+                    <div id="playerCard">
+                        <img id="cover" src="resources/player.gif" alt="Carátula" />
+                        <div id="songInfo">
+                            <span id="songTitle">Nombre de la canción</span>
+                            <span id="songArtist">Artista</span>
+                            <div id="songGenre" style="display:none"></div>
+                        </div>
+
+                        <!-- Audio invisible -->
+                        <div class="">
+                            <div class="player" style="visibility: hidden;">
+                                <audio id="player" style="visibility: hidden;"></audio>
+                            </div>
+                        </div>
+
+                        <!-- Barra de progreso -->
+                        <div class="progress-container">
+                            <div id="time-info">
+                                <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+                            </div>
+                            <div class="audio-player">
+                                <input class="player" type="range" id="progressBar" min="0" max="100" value="0"
+                                    step="0.001" disabled>
+                            </div>
+                        </div>
+
+                        <!-- Controles -->
+                        <div class="controls">
+                            <button id="playPauseBtn"><i style="font-size: larger;" class="ph ph-play"></i></button>
+                            <button id="repeatBtn"><i style="font-size: larger;" class="ph ph-repeat-once"></i></button>
+                            <button id="muteBtn"><i style="font-size: larger;" class="ph ph-speaker-high"></i></button>
+                            <input type="range" id="volumeSlider" min="0" max="1" step="0.0001" value="0.5">
+                        </div>
+                        <div>
+                            <button id="queueTabButton" class="queue-button"><i class="fa-solid fa-list-ul"></i> Lista
+                                de
+                                reproducción</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- footer class="glass-footer">
+        <p>Proyecto financiado y desarrollado por <strong>VAEN Systems</strong></p>
+    </footer -->
+    <hr style="padding-top: 5vh;">
+    <footer class="footer-compact-player">
+        <div class="fcp-left">
+            <img src="resources/player.gif" alt="Carátula" class="fcp-cover" id="fcp-cover" />
+            <div class="fcp-song-info">
+                <span class="fcp-title" id="fcp-title">Nombre de la canción</span>
+                <span class="fcp-artist" id="fcp-artist">Artista</span>
+            </div>
+        </div>
+        <div class="fcp-center">
+            <div class="fcp-controls-row">
+                <button class="fcp-btn"><i class="ph ph-skip-back"></i></button>
+                <button class="fcp-btn" id="fcp-playPauseBtn"><i class="ph ph-play"></i></button>
+                <button class="fcp-btn"><i class="ph ph-skip-forward"></i></button>
+            </div>
+            <div class="fcp-progress">
+                <span class="fcp-time" id="fcp-time">0:00</span>
+                <input type="range" id="fcp-progressbar" class="fcp-progressbar" min="0" max="100" value="0" step="0.01"
+                    disabled>
+                <span class="fcp-time-total" id="fcp-time-total">0:00</span>
+            </div>
+        </div>
+        <div class="fcp-right">
+            <button class="fcp-btn" id="fcp_repeatBtn"><i style="font-size: larger;"
+                    class="ph ph-repeat-once"></i></button>
+            <button class="fcp-btn" id="fcp_muteBtn"><i style="font-size: larger;"
+                    class="ph ph-speaker-high"></i></button>
+            <input id="fcp-volumeSlider" type="range" class="fcp-volume" min="0" max="1" step="0.01" value="0.5">
+            <button class="fcp-btn queue"><i style="font-size: larger;" class="fa-solid fa-list-ul"></i></button>
+        </div>
+    </footer>
+    <script src="script.js" defer></script>
+    <script src="topSongs.js" defer></script>
+    <script src="messages.js" defer></script>
+    <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
+    <script src="style.js" defer></script>
+    <script src="modal.js" defer></script>
+</body>
+
+</html>

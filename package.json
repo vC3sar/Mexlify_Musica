@@ -1,0 +1,45 @@
+{
+  "name": "mexlify",
+  "version": "1.0.0-alpha",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "description": "Mexlify - Alpha",
+  "author": "vC3sar",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "discord-rpc": "^4.0.1",
+    "ffmpeg-static": "^5.2.0",
+    "path": "^0.12.7",
+    "yt-dlp-exec": "^1.0.2"
+  },
+  "build": {
+    "appId": "com.mexlify.electron",
+    "productName": "Mexlify Alpha",
+    "icon": "build/icon.ico",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    }
+  }
+}
