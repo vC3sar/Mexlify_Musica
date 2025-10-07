@@ -83,7 +83,6 @@ Mexlify/
 ├── index.html
 ├── logo.png
 ├── package.json
-├── /downloads
 └── /node_modules
 ```
 
@@ -146,10 +145,10 @@ El uso de Mexlify implica la aceptación de los Términos de Servicio de YouTube
 ## 💬 Comunidad
 
 Únete a la comunidad de Mexlify en Discord:  
-👉 https://discord.gg/mexlify
+👉 [https://discord.gg/JRTtZWhDF8](https://discord.gg/JRTtZWhDF8)
 
 ---
 
-Versión: 1.0.0  
+Versión: 1.0.0 Alpha
 Última actualización: 03 de Octubre de 2025  
 Desarrollado por: VAEN Systems
