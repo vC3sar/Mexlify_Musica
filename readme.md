@@ -35,7 +35,7 @@ Todo esto sin recopilar datos personales ni incluir publicidad.
 
 - Node.js v18 o superior  
 - npm o yarn  
-- Windows 10/11  
+- Windows 10/11 no trabaja con linux debido al PATH de ffmpeg personalizado con .exe
 
 ### 📦 Instalación y ejecución
 
