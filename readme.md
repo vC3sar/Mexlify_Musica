@@ -1,4 +1,4 @@
-# 🎵 Mexlify Música
+# 🎵 Mexlify Música [![Node.js CI](https://github.com/vC3sar/Mexlify_Musica/actions/workflows/node.js.yml/badge.svg)](https://github.com/vC3sar/Mexlify_Musica/actions/workflows/node.js.yml)
 
 **Mexlify Música** es una aplicación de escritorio para Windows desarrollada con **Electron** que permite **escuchar música sin anuncios**, **buscar canciones** en YouTube, **descargar audio en MP3** y **mostrar tu actividad en Discord** mediante **Rich Presence**.  
 Todo esto sin recopilar datos personales ni incluir publicidad.
