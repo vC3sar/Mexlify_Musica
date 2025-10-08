@@ -33,7 +33,7 @@ Todo esto sin recopilar datos personales ni incluir publicidad.
 
 ### 🔧 Requisitos previos
 
-- Node.js v18 o superior  
+- Node.js v22 o superior  
 - npm o yarn  
 - Windows 10/11 no trabaja con linux debido al PATH de ffmpeg personalizado con .exe
 
