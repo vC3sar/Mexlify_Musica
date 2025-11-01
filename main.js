@@ -6,7 +6,7 @@ const { spawn } = require("child_process");
 
 // Solo estos cambios mínimos para mejorar sin romper nada
 const isDev = !app.isPackaged; // ✅ Auto-detecta entorno (en lugar de hardcodear)
-let debug = false; // ✅ Mantener como variable para poder cambiar
+let debug = true; // ✅ Mantener como variable para poder cambiar
 
 function logDebug(...args) {
   if (debug) console.log("[DEBUG]", ...args);
@@ -112,6 +112,46 @@ function getFfmpegPath() {
 
 console.dir(isDev);
 
+function checkYtdlpUpdate(win) {
+  return new Promise((resolve) => {
+    if (!win) {
+      logDebug(
+        "La ventana no está lista para mostrar mensajes de actualización."
+      );
+      return resolve();
+    }
+
+    logDebug("Buscando actualizaciones de yt-dlp...");
+    win.webContents.send("ytdlp-update-status", {
+      message: "Buscando actualizaciones de yt-dlp...",
+      type: "info",
+    });
+
+    const ytdlpPath = getYtdlpPath();
+    const proc = spawn(ytdlpPath, ["-U"]);
+
+    let output = "";
+
+    proc.stdout.on("data", (data) => {
+      const message = data.toString();
+      output += message;
+      logDebug(`yt-dlp update: ${message}`);
+      win.webContents.send("ytdlp-update-status", { message, type: "info" });
+    });
+
+    proc.stderr.on("data", (data) => {
+      const message = data.toString();
+      logDebug(`yt-dlp update error: ${message}`);
+      win.webContents.send("ytdlp-update-status", { message, type: "error" });
+    });
+
+    proc.on("close", (code) => {
+      logDebug(`yt-dlp update process exited with code ${code}`);
+      resolve();
+    });
+  });
+}
+
 // ------------------- Crear ventana (TU CÓDIGO ORIGINAL) -------------------
 function createWindow() {
   const win = new BrowserWindow({
@@ -131,6 +171,7 @@ function createWindow() {
   win.webContents.setFrameRate(60);
   win.loadFile("index.html");
   if (debug) win.webContents.openDevTools();
+  return win;
 }
 // ================ INICIALIZACIÓN ================
 app.setName("Mexlify");
@@ -141,7 +182,8 @@ app.setAboutPanelOptions({
 });
 
 app.whenReady().then(() => {
-  createWindow();
+  const win = createWindow();
+  checkYtdlpUpdate(win);
   setTimeout(async () => {
     await initDiscord();
     await updateActivity("En hub", "Esperando canción...");
@@ -163,35 +205,6 @@ function normalize(query) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-}
-
-async function getCorrectSongName(query) {
-  try {
-    // Llamar a tu API de Redis + iTunes
-    const res = await fetch(
-      `http://45.136.18.222:3000/song?q=${encodeURIComponent(query)}`
-    );
-
-    if (!res.ok) {
-      console.warn(`API respondió ${res.status}, usando query original`);
-      return { corrected: query, cover: null };
-    }
-
-    const data = await res.json().catch((err) => {
-      console.warn("Error parseando JSON de API Redis:", err);
-      return null;
-    });
-
-    if (data) {
-      // Devuelve lo que la API ya haya procesado y cacheado
-      return { corrected: data.corrected, cover: data.cover };
-    }
-  } catch (err) {
-    console.error("Error consultando API Redis:", err);
-  }
-
-  // fallback
-  return { corrected: query, cover: null };
 }
 
 // ------------------- Función helper para ejecutar yt-dlp (TU CÓDIGO ORIGINAL) -------------------
@@ -259,6 +272,45 @@ async function validateURL(url) {
   }
 }
 
+async function getCorrectSongName(query) {
+  // Consultar iTunes
+  try {
+    const resp = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(
+        query
+      )}&entity=musicTrack&limit=5`,
+      { headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+
+    if (!resp.ok)
+      return res.status(resp.status).json({
+        corrected: query,
+        cover: null,
+        genre: null,
+        source: "fallback",
+      });
+
+    const data = await resp.json();
+
+    if (data.results?.length > 0) {
+      // lista todos y los devuelve en un array siguiendo el proceso de if results
+      const tracks = data.results.map((track) => ({
+        corrected: `${track.trackName} ${track.artistName}`,
+        cover: track.artworkUrl100?.replace("100x100bb.jpg", "500x500bb.jpg"),
+        genre: track.primaryGenreName || null,
+      }));
+      // Devuelve lo que la API ya haya procesado y cacheado
+      return tracks;
+    } else {
+      return { corrected: query, cover: null };
+    }
+  } catch (err) {
+    console.error("Error consultando API Redis:", err);
+  }
+
+  // fallback
+  return { corrected: query, cover: null };
+}
 // ------------------- IPC Handlers (TU CÓDIGO ORIGINAL EXACTO) -------------------
 ipcMain.handle("searchSong", async (event, query) => {
   logDebug("Buscando:", query);
@@ -266,13 +318,19 @@ ipcMain.handle("searchSong", async (event, query) => {
   query = normalize(query);
 
   try {
-    // 1️⃣ Obtener nombre corregido, cover y género desde iTunes
+    // 1️⃣ Obtener nombre corregido, cover y género desde iTunes de todos los del array
+    /*const tracks = await getCorrectSongName(query);
     const {
       corrected,
       cover: itunesCover,
       genre,
-    } = await getCorrectSongName(query);
-
+    } = tracks[0] || { corrected: query, cover: null, genre: null };
+    console.log("Nombre corregido:", corrected, itunesCover, genre);
+    console.log("Tambien se obtuvieron:", tracks);*/
+    const corrected = query; // Desactivar corrección por ahora
+    const itunesCover = null;
+    const genre = null;
+    
     // Función para validar los datos de una canción
     function isValidSong(item) {
       return (
@@ -288,44 +346,6 @@ ipcMain.handle("searchSong", async (event, query) => {
         typeof item.thumbnail === "string" &&
         item.thumbnail.startsWith("https://")
       );
-    }
-
-    // 2️⃣ Revisar Redis primero con 'corrected'
-    let cachedData;
-    try {
-      const redisResp = await fetch(
-        `http://45.136.18.222:3000/ytdlp?q=${encodeURIComponent(corrected)}`
-      );
-      if (redisResp.ok) {
-        cachedData = await redisResp.json();
-        console.log("Datos cacheados recibidos:", cachedData);
-      }
-    } catch (err) {
-      logDebug("Error consultando Redis API:", err);
-    }
-
-    if (cachedData?.results && Array.isArray(cachedData.results)) {
-      const validResults = cachedData.results
-        .filter(isValidSong)
-        .map((item) => ({
-          ...item,
-          genre: item.genre || genre || null,
-        }));
-
-      if (validResults.length > 0) {
-        logDebug(
-          `Encontrado en Redis API: "${corrected}", resultados válidos: ${validResults.length}`
-        );
-        return validResults;
-      } else {
-        logDebug(
-          `Datos cacheados recibidos pero ninguno es válido para: "${corrected}"`
-        );
-        // el código sigue con búsqueda yt-dlp
-      }
-    } else {
-      logDebug(`No hay datos cacheados en Redis para: "${corrected}"`);
-      // el código sigue con búsqueda yt-dlp
     }
 
     // 3️⃣ Ejecutar yt-dlp
@@ -349,7 +369,7 @@ ipcMain.handle("searchSong", async (event, query) => {
             "--skip-download",
             "--quiet",
           ]);
-          console.log(info);
+          //console.log(info);
           const thumbnail =
             itunesCover ||
             info.thumbnail?.replace(/hqdefault\.jpg$/, "maxresdefault.jpg") ||
@@ -378,17 +398,6 @@ ipcMain.handle("searchSong", async (event, query) => {
     const filteredResults = detailedResults.filter(
       (song) => !song.duration || song.duration >= 50
     );
-    // 4️⃣ Guardar en Redis API por 1 día (incluye genre)
-    await fetch(`http://45.136.18.222:3000/ytdlp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: corrected,
-        cover: itunesCover,
-        results: filteredResults,
-      }),
-    });
-    logDebug(`[DEBUG] Resultados guardados en Redis API: "${corrected}"`);
 
     return filteredResults;
   } catch (err) {

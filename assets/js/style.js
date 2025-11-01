@@ -97,29 +97,52 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   function updatePlayerBgColor() {
     console.log("Updating player bg color");
-    setTimeout(() => {
-      const img = document.getElementById("cover");
-      if (!img) return setTimeout(updatePlayerBgColor, 2000); // Si no existe, intenta de nuevo
-      // Asegúrate de que la imagen esté cargada
-      if (img.complete) {
-        const colorThief = new ColorThief();
-        const rgb = colorThief.getColor(img); // [r, g, b]
 
-        // Oscurecer el color dominante directamente:
-        const factor = 0.3; // Ajusta este valor para más o menos oscuridad (0.3 = muy oscuro)
-        const darkRgb = [
-          Math.round(rgb[0] * factor),
-          Math.round(rgb[1] * factor),
-          Math.round(rgb[2] * factor),
-        ];
+    const img = document.getElementById("cover");
 
-        // Aplica el fondo oscuro
-        document.getElementById(
-          "playerCard"
-        ).style.backgroundColor = `rgb(${darkRgb.join(",")})`;
+    // Asegúrate de que la imagen esté completamente cargada antes de procesarla
+    if (img.complete) {
+      const colorThief = new ColorThief();
+
+      // Extrae una paleta de colores de la imagen (toma 10 colores)
+      const palette = colorThief.getPalette(img, 10); // Cambia el valor para obtener más o menos colores
+
+      console.log("Color palette:", palette);
+
+      // Calcula el promedio de los colores extraídos
+      let r = 0,
+        g = 0,
+        b = 0;
+      palette.forEach((color) => {
+        r += color[0];
+        g += color[1];
+        b += color[2];
+      });
+
+      const averageColor = [
+        Math.floor(r / palette.length),
+        Math.floor(g / palette.length),
+        Math.floor(b / palette.length),
+      ];
+
+      console.log("Average color:", averageColor);
+
+      // Aplica el color promedio como fondo
+      const playerCard = document.getElementById("playerCard");
+      if (playerCard) {
+        playerCard.style.backgroundColor = `rgb(${averageColor.join(
+          ","
+        )}, 0.7)`;
       }
-    }, 2000);
+    } else {
+      // Si la imagen no está cargada, vuelve a intentarlo
+      img.onload = updatePlayerBgColor; // Espera hasta que la imagen cargue completamente
+      img.onerror = function () {
+        console.error("Error loading image.");
+      };
+    }
   }
+
   // ======= Fin fondo dinámico =======
 });
 

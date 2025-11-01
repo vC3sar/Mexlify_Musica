@@ -47,5 +47,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   deleteDownload: async (filename) => {
     return await ipcRenderer.invoke("deleteDownload", filename);
-  }
+  },
+  // Recibir mensajes de actualización de yt-dlp
+  onYtdlpUpdate: (callback) => {
+    ipcRenderer.on("ytdlp-update-status", (_event, value) => callback(value));
+  },
 });

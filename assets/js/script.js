@@ -125,8 +125,16 @@ async function playSong(song, isDownloaded = false) {
 
   progressBar.disabled = false;
   fcpProgressBar.disabled = false;
-  cover.src = isDownloaded ? `${song.thumbnail}` : song.thumbnail;
-  fcp_cover.src = isDownloaded ? `${song.thumbnail}` : song.thumbnail;
+
+  // Intentar obtener la portada de iTunes si no está descargada
+  let coverImageUrl = song.thumbnail; // Usa la portada de la canción por defecto
+
+  console.log("Portada usada:", coverImageUrl);
+  // Establecer la imagen de portada en los elementos correspondientes
+  cover.src = coverImageUrl;
+  fcp_cover.src = coverImageUrl;
+
+  // Establecer el título y el artista
   songTitle.textContent = cleanSongTitle(song.title);
   songArtist.textContent = song.uploader;
   fcp_songTitle.textContent = cleanSongTitle(song.title);
@@ -146,19 +154,22 @@ async function playSong(song, isDownloaded = false) {
     .replace(/\(\s*\)/g, "")
     .trim();
 
+  // Actualizar estado de Discord después de 5 segundos
   setTimeout(async () => {
     await window.electronAPI.setDiscordActivity(
       `Reproduciendo 🎶 | (${formatTime(player.duration)})`,
       `${songTitleDC} - ${songArtistText}`,
-      song.thumbnail,
+      coverImageUrl,
       false
     );
   }, 5 * 1000);
 
+  // Pausar audio anterior si existe
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.src = "";
   }
+
   if (song?.filename?.includes(".mp3")) {
     isDownloaded = true;
   }
@@ -193,8 +204,8 @@ async function playSong(song, isDownloaded = false) {
       artwork: [
         {
           src:
-            song.thumbnail ||
-            "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png",
+            coverImageUrl ||
+            "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png", // Usa la portada de iTunes si existe, o una predeterminada
           sizes: "512x512",
           type: "image/png",
         },
@@ -1195,6 +1206,29 @@ document.getElementById("backtop").addEventListener("click", () => {
   countryTopContainer.classList.add("active");
 });
 
+// Listener para actualizaciones de yt-dlp
+window.electronAPI.onYtdlpUpdate((status) => {
+  console.log("Estado de actualización de yt-dlp:", status);
+
+  // Usamos la función showModal que ya existe en tu proyecto
+  // para notificar al usuario de una forma más elegante que un alert.
+  if (status.message.includes("is up to date")) {
+    // No mostramos nada si ya está actualizado para no molestar.
+    console.log("yt-dlp ya está actualizado.");
+  } else if (status.message.includes("Updating to")) {
+    showModal(
+      "Actualización",
+      "Se está actualizando el motor de descargas (yt-dlp)...",
+      "info"
+    );
+  } else if (status.type === "error") {
+    showModal(
+      "Error de Actualización",
+      `No se pudo actualizar yt-dlp: <br><pre>${status.message}</pre>`,
+      "error"
+    );
+  }
+});
 // ======= Inicializar =======
 loadDownloaded();
 debugLog("Aplicación iniciada");

@@ -30,6 +30,8 @@ body {
     gap: 20px;
     padding: 20px;
     padding-top: 0;
+    padding-left: 0px;
+    margin-left: 0px;
 }
 
 /* Tablet: ajustar tamaño de columnas */
@@ -72,12 +74,12 @@ body {
 
 /* Sidebar */
 .sidebar {
-    background: rgb(128 128 128 / 40%);
+    background: rgb(25 25 25);
     backdrop-filter: blur(10px) saturate(180%);
     padding: 15px;
-    border-radius: 12px;
+    border-radius: 0px 1rem 1rem 0px;
     color: #fff;
-    max-height: fit-content;
+    height: 100%;
     transition: all 0.3s ease;
     /* Para animaciones suaves al cambiar tamaño */
 }
@@ -94,11 +96,13 @@ body {
     margin-bottom: 10px;
     font-family: 'Poppins', sans-serif;
     font-size: 16px;
+    color: #000;
+    background-color: rgb(245, 245, 220);
 }
 
 /* Hover opcional para efecto elegante */
 .sidebar ul li:hover {
-    text-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.395);
 }
 
 /* Responsivo para pantallas pequeñas */
@@ -776,7 +780,7 @@ button.playing .pause-icon {
     content: "";
     position: absolute;
     inset: 0;
-    background: url("logo.png") center/contain no-repeat;
+    background: url("../../logo.png") center/contain no-repeat;
     filter: blur(4px);
     /* Solo el logo tiene blur */
     z-index: 0;
@@ -1010,7 +1014,7 @@ button.playing .pause-icon {
     font-weight: 700;
     color: #f6fafd;
     background: rgba(205, 221, 245, 0.25);
-    border: 1.5px solid rgba(255,255,255,0.27);
+    border: 1.5px solid rgba(255, 255, 255, 0.27);
     border-radius: 50px;
     cursor: pointer;
     box-shadow:
@@ -1037,7 +1041,7 @@ button.playing .pause-icon {
     inset: 0;
     border-radius: inherit;
     background:
-        linear-gradient(120deg, rgba(255,255,255,0.32) 20%, rgba(163, 216, 255, 0.09) 100%);
+        linear-gradient(120deg, rgba(255, 255, 255, 0.32) 20%, rgba(163, 216, 255, 0.09) 100%);
     opacity: 0.85;
     pointer-events: none;
     z-index: 1;
@@ -1046,9 +1050,11 @@ button.playing .pause-icon {
 .vaen-play-btn::after {
     content: "";
     position: absolute;
-    top: 8px; left: 30px;
-    width: 36px; height: 36px;
-    background: radial-gradient(circle, rgba(255,255,255,0.29) 0%, rgba(255,255,255,0) 100%);
+    top: 8px;
+    left: 30px;
+    width: 36px;
+    height: 36px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.29) 0%, rgba(255, 255, 255, 0) 100%);
     border-radius: 50%;
     opacity: 0.33;
     z-index: 2;
@@ -1503,18 +1509,25 @@ hr {
 .menu-link-glass {
     background-color: #161616;
     display: block;
-    color: #fff;
+    color: #ffffff;
     text-decoration: none;
     font-weight: 600;
 }
 
 .menu-link-glass:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
 }
 
 .menu-link-glass a {
-    color: #fff;
+    color: #000000;
     text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+
+}
+
+.menu-link-glass:hover {
+    transform: translateY(-3px);
+    background-color: rgba(255, 255, 255, 0.2); /* Fondo sutil */
 }
 
 .ph {
@@ -1980,4 +1993,13 @@ label.headerGradient[for="headerGradient"] {
 .disabled {
     opacity: 0.4;
     pointer-events: none;
+}
+
+.label-info-gray {
+    color: #bbbbbb;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding-left: 4px;
+    /* No permitir selección */
+    user-select: none;
 }

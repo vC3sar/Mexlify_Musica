@@ -750,6 +750,23 @@ player.addEventListener("pause", () => {
   playPauseBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
 });
 
+// Listener para actualizaciones de yt-dlp
+window.electronAPI.onYtdlpUpdate((status) => {
+  console.log("Estado de actualización de yt-dlp:", status);
+
+  // Usamos la función showModal que ya existe en tu proyecto
+  // para notificar al usuario de una forma más elegante que un alert.
+  if (status.message.includes("is up to date")) {
+    // No mostramos nada si ya está actualizado para no molestar.
+    console.log("yt-dlp ya está actualizado.");
+  } else if (status.message.includes("Updating to")) {
+    showModal("Actualización", "Se está actualizando el motor de descargas (yt-dlp)...", "info");
+  } else if (status.type === "error") {
+    showModal("Error de Actualización", `No se pudo actualizar yt-dlp: <br><pre>${status.message}</pre>`, "error");
+  }
+});
+
+
 // 🕒 Formato mm:ss
 function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60);

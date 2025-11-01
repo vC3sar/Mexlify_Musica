@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>Mexlify</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="stylesheet" type="text/css"
         href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
@@ -86,6 +86,7 @@
                     <input id="searchInput" placeholder="Buscar canción">
                     <span class="searchIcon">🔍</span>
                 </div>
+                <label class="label-info-gray">Para busquedas más precisas añade el autor de la canción</label>
 
                 <!-- Resultados -->
                 <div class="tab-content">
@@ -271,7 +272,7 @@
                             <button id="playPauseBtn"><i style="font-size: larger;" class="ph ph-play"></i></button>
                             <button id="repeatBtn"><i style="font-size: larger;" class="ph ph-repeat-once"></i></button>
                             <button id="muteBtn"><i style="font-size: larger;" class="ph ph-speaker-high"></i></button>
-                            <input type="range" id="volumeSlider" min="0" max="1" step="0.0001" value="0.5">
+                            <input type="range" id="volumeSlider" min="0" max="0.95" step="0.0001" value="0.5">
                         </div>
                         <div>
                             <button id="queueTabButton" class="queue-button"><i class="fa-solid fa-list-ul"></i> Lista
@@ -314,16 +315,16 @@
                     class="ph ph-repeat-once"></i></button>
             <button class="fcp-btn" id="fcp_muteBtn"><i style="font-size: larger;"
                     class="ph ph-speaker-high"></i></button>
-            <input id="fcp-volumeSlider" type="range" class="fcp-volume" min="0" max="1" step="0.01" value="0.5">
+            <input id="fcp-volumeSlider" type="range" class="fcp-volume" min="0" max="0.95" step="0.0001" value="0.5">
             <button class="fcp-btn queue"><i style="font-size: larger;" class="fa-solid fa-list-ul"></i></button>
         </div>
     </footer>
-    <script src="script.js" defer></script>
-    <script src="topSongs.js" defer></script>
-    <script src="messages.js" defer></script>
+    <script src="assets/js/script.js" defer></script>
+    <script src="assets/js/topSongs.js" defer></script>
+    <script src="assets/js/messages.js" defer></script>
     <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
-    <script src="style.js" defer></script>
-    <script src="modal.js" defer></script>
+    <script src="assets/js/style.js" defer></script>
+    <script src="assets/js/modal.js" defer></script>
 </body>
 
 </html>
