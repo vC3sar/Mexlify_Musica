@@ -1,4 +1,4 @@
-# 🎵 Mexlify Música
+# 🎵 Mexlify Música [![Node.js CI](https://github.com/vC3sar/Mexlify_Musica/actions/workflows/node.js.yml/badge.svg)](https://github.com/vC3sar/Mexlify_Musica/actions/workflows/node.js.yml)
 
 **Mexlify Música** es una aplicación de escritorio para Windows desarrollada con **Electron** que permite **escuchar música sin anuncios**, **buscar canciones** en YouTube, **descargar audio en MP3** y **mostrar tu actividad en Discord** mediante **Rich Presence**.  
 Todo esto sin recopilar datos personales ni incluir publicidad.
@@ -33,9 +33,9 @@ Todo esto sin recopilar datos personales ni incluir publicidad.
 
 ### 🔧 Requisitos previos
 
-- Node.js v18 o superior  
+- Node.js v22 o superior  
 - npm o yarn  
-- Windows 10/11  
+- Windows 10/11 no trabaja con linux debido al PATH de ffmpeg personalizado con .exe
 
 ### 📦 Instalación y ejecución
 
@@ -83,7 +83,6 @@ Mexlify/
 ├── index.html
 ├── logo.png
 ├── package.json
-├── /downloads
 └── /node_modules
 ```
 
@@ -146,10 +145,10 @@ El uso de Mexlify implica la aceptación de los Términos de Servicio de YouTube
 ## 💬 Comunidad
 
 Únete a la comunidad de Mexlify en Discord:  
-👉 https://discord.gg/mexlify
+👉 [https://discord.gg/JRTtZWhDF8](https://discord.gg/JRTtZWhDF8)
 
 ---
 
-Versión: 1.0.0  
+Versión: 1.0.0 Alpha
 Última actualización: 03 de Octubre de 2025  
 Desarrollado por: VAEN Systems
