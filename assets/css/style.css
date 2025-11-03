@@ -79,7 +79,7 @@ body {
     padding: 15px;
     border-radius: 0px 1rem 1rem 0px;
     color: #fff;
-    height: 100%;
+    height: fit-content;
     transition: all 0.3s ease;
     /* Para animaciones suaves al cambiar tamaño */
 }
@@ -1521,13 +1521,14 @@ hr {
 .menu-link-glass a {
     color: #000000;
     text-decoration: none;
-        transition: transform 0.3s ease, background-color 0.3s ease;
+    transition: transform 0.3s ease, background-color 0.3s ease;
 
 }
 
 .menu-link-glass:hover {
     transform: translateY(-3px);
-    background-color: rgba(255, 255, 255, 0.2); /* Fondo sutil */
+    background-color: rgba(255, 255, 255, 0.2);
+    /* Fondo sutil */
 }
 
 .ph {
@@ -1997,6 +1998,18 @@ label.headerGradient[for="headerGradient"] {
 
 .label-info-gray {
     color: #bbbbbb;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding-left: 4px;
+    /* No permitir selección */
+    user-select: none;
+}
+
+.span-muted {
+    color: #888888;
+}
+
+.span-template {
     font-size: 0.95rem;
     font-weight: 500;
     padding-left: 4px;

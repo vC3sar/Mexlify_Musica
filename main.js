@@ -48,7 +48,8 @@ async function updateActivity(details, state, image, resetTime = false) {
     if (resetTime || !rpcStartTimestamp) {
       rpcStartTimestamp = Math.floor(Date.now() / 1000); // inicializamos
     }
-
+    // agregar presencia con denotacion en debug
+    details = debug ? `[MODO DEBUG] ${details}` : details;
     await rpc.setActivity({
       details: details,
       state: state,

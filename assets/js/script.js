@@ -29,6 +29,7 @@ const countryMixbtnA = document.getElementById("btnCountryMixA");
 const countryMixbtnB = document.getElementById("btnCountryMixB");
 const settingsTabButton = document.getElementById("settingsTab");
 
+const homeTab = document.getElementById("homeTab");
 const searchTab = document.getElementById("searchTab");
 const downloadsTab = document.getElementById("downloadsTab");
 const searchContainer = document.getElementById("searchContainer");
@@ -1120,12 +1121,26 @@ volumeSlider.addEventListener("input", handleVolumeChange);
 fcp_volumeSlider.addEventListener("input", handleVolumeChange);
 
 // ======= Tabs =======
+homeTab.addEventListener("click", () => {
+  searchContainer.style.display = "block";
+  downloadsContainer.style.display = "none";
+  queueTab.style.display = "none";
+  homeTab.classList.add("active");
+  downloadsTab.classList.remove("active");
+  queueTab.classList.remove("active");
+  searchTab.classList.remove("active");
+  countryTopContainer.style.display = "none";
+  countryTopContainer.classList.remove("active");
+  settingsContainer.style.display = "none";
+  settingsTabButton.classList.remove("active");
+});
 searchTab.addEventListener("click", () => {
   searchContainer.style.display = "block";
   downloadsContainer.style.display = "none";
   queueTab.style.display = "none";
   searchTab.classList.add("active");
   downloadsTab.classList.remove("active");
+  homeTab.classList.remove("active");
   queueTab.classList.remove("active");
   countryTopContainer.style.display = "none";
   countryTopContainer.classList.remove("active");
@@ -1138,6 +1153,7 @@ downloadsTab.addEventListener("click", () => {
   downloadsContainer.style.display = "block";
   queueTab.style.display = "none";
   countryTopContainer.style.display = "none";
+  homeTab.classList.remove("active");
   downloadsTab.classList.add("active");
   searchTab.classList.remove("active");
   queueTab.classList.remove("active");
@@ -1152,6 +1168,7 @@ queueTabButton.addEventListener("click", () => {
   countryTopContainer.style.display = "none";
   queueTab.style.display = "block";
   queueTabButton.classList.add("active");
+  homeTab.classList.remove("active");
   searchTab.classList.remove("active");
   downloadsTab.classList.remove("active");
   countryTopContainer.classList.remove("active");
@@ -1164,6 +1181,7 @@ settingsTabButton.addEventListener("click", () => {
   downloadsContainer.style.display = "none";
   queueTab.style.display = "none";
   countryTopContainer.style.display = "none";
+  homeTab.classList.remove("active");
   queueTabButton.classList.remove("active");
   searchTab.classList.remove("active");
   downloadsTab.classList.remove("active");
@@ -1207,6 +1225,26 @@ document.getElementById("backtop").addEventListener("click", () => {
 });
 
 // Listener para actualizaciones de yt-dlp
+function showUpdateStatus(message, sub_message) {
+  new Notify({
+    status: "info",
+    title: message,
+    text: sub_message,
+    effect: "fade",
+    speed: 300,
+    customClass: "",
+    customIcon: "",
+    showIcon: true,
+    showCloseButton: true,
+    autoclose: true,
+    autotimeout: 3000,
+    notificationsGap: null,
+    notificationsPadding: null,
+    type: "outline",
+    position: "right top",
+    customWrapper: "",
+  });
+}
 window.electronAPI.onYtdlpUpdate((status) => {
   console.log("Estado de actualización de yt-dlp:", status);
 
@@ -1215,6 +1253,12 @@ window.electronAPI.onYtdlpUpdate((status) => {
   if (status.message.includes("is up to date")) {
     // No mostramos nada si ya está actualizado para no molestar.
     console.log("yt-dlp ya está actualizado.");
+    showUpdateStatus(
+      "El motor está actualizado",
+      "La APP funciona correctamente."
+    );
+    // guardar estado en localStorage
+    localStorage.setItem("engineStatus", "Actualizada");
   } else if (status.message.includes("Updating to")) {
     showModal(
       "Actualización",
@@ -1232,7 +1276,12 @@ window.electronAPI.onYtdlpUpdate((status) => {
 // ======= Inicializar =======
 loadDownloaded();
 debugLog("Aplicación iniciada");
-
+if (localStorage.getItem("engineStatus") === "Actualizada") {
+  showUpdateStatus(
+    "El motor está actualizado",
+    "La APP funciona correctamente."
+  );
+}
 // Opcional: FPS real del renderer
 /*
 let frames = 0;
