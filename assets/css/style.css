@@ -2016,3 +2016,10 @@ label.headerGradient[for="headerGradient"] {
     /* No permitir selección */
     user-select: none;
 }
+
+/* Estilo para las opciones dentro de los menús desplegables */
+.glass-select option {
+    background: #1c1c1c !important; /* Un fondo oscuro para mejor compatibilidad */
+    color: #ffffff !important; /* Color de texto blanco */
+    padding: 8px; /* Añade algo de espacio interno si el navegador lo permite */
+}

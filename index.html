@@ -142,7 +142,8 @@
                                     <br>
                                     <small class="small-ra">Selecciona la calidad de audio predeterminada para la
                                         reproducción.</small>
-                                    <select id="audioQuality" name="audioQuality" class="glass-audio-quality">
+                                    <select id="audioQuality" name="audioQuality"
+                                        class="glass-audio-quality glass-select">
                                         <option value="low" disabled>Baja (64 kbps)</option>
                                         <option value="medium" disabled>Media (128 kbps)</option>
                                         <option value="high" selected>Alta (256 kbps)</option>
@@ -154,7 +155,25 @@
                                 </div>
                             </div>
                             <hr>
-                            <div class="appVoice" class="settings-option">
+                            <div class="eqPresets">
+                                <div class="glass-control-ra">
+                                    <label for="presets" class="glass-label-ra">EQ Presets: <small
+                                            class="small-info">(BETA)</small></label>
+                                    <small class="small-ra">Selecciona un preset de ecualización. (Los cambios se
+                                        aplicarán al audio en tiempo real)</small>
+                                    <select id="presets" class="glass-audio-quality glass-select">
+                                        <option value="flat">Plano</option>
+                                        <option value="bassBoost">Refuerzo de Bajos</option>
+                                        <option value="trebleBoost">Refuerzo de Agudos</option>
+                                        <option value="vocal">Vocal Suave</option>
+                                    </select>
+                                    <hr>
+                                    <span class="small-ra" style="color:#888">Puedes personalizar el ecualizador en la
+                                        sección de ecualizador avanzado. (Próximamente)</span>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="appVoice settings-option">
                                 <div class="glass-control-ra">
                                     <label for="appVoiceSelect" class="glass-label-ra">Voz de la aplicación <small
                                             class="small-info">(BETA)</small></label>
@@ -163,8 +182,10 @@
                                     <small class="small-info" id="voiceLabel">Voz desactivada</small>
                                     <small class="small-ra">Selecciona la voz que usará la aplicación para los
                                         mensajes de voz.</small>
-                                    <select id="appVoiceSelect" name="appVoiceSelect" class="glass-audio-quality">
-                                        <option value="spanish">Español (México)</option>
+                                    <select id="appVoiceSelect" name="appVoiceSelect"
+                                        class="glass-audio-quality glass-select">
+                                        <option value="spanish" selected>Español (México)</option>
+                                        <option value="english" disabled>Inglés (US) (Próximamente)</option>
                                     </select>
                                     <hr>
                                     <span class="small-ra" style="color:#888">Puedes probar la voz seleccionada
@@ -325,6 +346,7 @@
     <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
     <script src="assets/js/style.js" defer></script>
     <script src="assets/js/modal.js" defer></script>
+    <script src="assets/js/equalizer.js"></script>
 </body>
 
 </html>

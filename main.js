@@ -49,7 +49,7 @@ async function updateActivity(details, state, image, resetTime = false) {
       rpcStartTimestamp = Math.floor(Date.now() / 1000); // inicializamos
     }
     // agregar presencia con denotacion en debug
-    details = debug ? `[MODO DEBUG] ${details}` : details;
+    details = debug ? `[MODO DESARROLLO] - ${details}` : details;
     await rpc.setActivity({
       details: details,
       state: state,

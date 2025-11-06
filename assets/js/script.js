@@ -1276,12 +1276,6 @@ window.electronAPI.onYtdlpUpdate((status) => {
 // ======= Inicializar =======
 loadDownloaded();
 debugLog("Aplicación iniciada");
-if (localStorage.getItem("engineStatus") === "Actualizada") {
-  showUpdateStatus(
-    "El motor está actualizado",
-    "La APP funciona correctamente."
-  );
-}
 // Opcional: FPS real del renderer
 /*
 let frames = 0;
