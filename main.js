@@ -129,7 +129,7 @@ function checkYtdlpUpdate(win) {
     });
 
     const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, ["-U"]);
+    const proc = spawn(ytdlpPath, ["--update-to nightly"]);
 
     let output = "";
 
@@ -274,8 +274,9 @@ async function validateURL(url) {
 }
 
 async function getCorrectSongName(query) {
-  // Consultar iTunes
+  // Consultar iTunes API para obtener resultados
   try {
+    // Realizamos la búsqueda en iTunes
     const resp = await fetch(
       `https://itunes.apple.com/search?term=${encodeURIComponent(
         query
@@ -283,55 +284,75 @@ async function getCorrectSongName(query) {
       { headers: { "User-Agent": "Mozilla/5.0" } }
     );
 
-    if (!resp.ok)
-      return res.status(resp.status).json({
+    if (!resp.ok) {
+      // Si la respuesta no es correcta, devolvemos la consulta original
+      return {
         corrected: query,
         cover: null,
         genre: null,
         source: "fallback",
-      });
+      };
+    }
 
+    // Parseamos la respuesta de la API
     const data = await resp.json();
 
     if (data.results?.length > 0) {
-      // lista todos y los devuelve en un array siguiendo el proceso de if results
+      // Mapeamos los resultados para obtener el nombre corregido, portada y género
       const tracks = data.results.map((track) => ({
         corrected: `${track.trackName} ${track.artistName}`,
-        cover: track.artworkUrl100?.replace("100x100bb.jpg", "500x500bb.jpg"),
+        cover: track.artworkUrl100?.replace("100x100bb.jpg", "500x500bb.jpg"), // Usamos una imagen más grande
         genre: track.primaryGenreName || null,
       }));
-      // Devuelve lo que la API ya haya procesado y cacheado
+      // Retornamos los resultados procesados
       return tracks;
     } else {
+      // Si no encontramos resultados, devolvemos la consulta original
       return { corrected: query, cover: null };
     }
   } catch (err) {
-    console.error("Error consultando API Redis:", err);
+    // Manejo de errores
+    console.error("Error consultando la API de iTunes:", err);
   }
 
-  // fallback
+  // Si ocurre algún error en la consulta, devolvemos la consulta original
   return { corrected: query, cover: null };
 }
+
+// NEW CODEEEEEEEEEEEEEEEEEEEEE
+
 // ------------------- IPC Handlers (TU CÓDIGO ORIGINAL EXACTO) -------------------
 ipcMain.handle("searchSong", async (event, query) => {
+  console.time("searchSong"); // Empieza el temporizador
+
   logDebug("Buscando:", query);
   const limit = query.includes(" - ") ? 1 : 3;
   query = normalize(query);
 
   try {
-    // 1️⃣ Obtener nombre corregido, cover y género desde iTunes de todos los del array
-    /*const tracks = await getCorrectSongName(query);
-    const {
-      corrected,
-      cover: itunesCover,
-      genre,
-    } = tracks[0] || { corrected: query, cover: null, genre: null };
-    console.log("Nombre corregido:", corrected, itunesCover, genre);
-    console.log("Tambien se obtuvieron:", tracks);*/
-    const corrected = query; // Desactivar corrección por ahora
-    const itunesCover = null;
-    const genre = null;
-    
+    // Inicializa las constantes con valores predeterminados
+    let corrected = query; // Desactivar corrección por ahora
+    let itunesCover = null;
+    let genre = null;
+
+    try {
+      // Espera el resultado de getCorrectSongName
+      const result = query;
+
+      // Verifica si hay resultados
+      if (result && result.length > 0) {
+        // Asigna los valores de la primera canción en los resultados
+        corrected = result[0].corrected || query;
+        itunesCover = result[0].cover || null;
+        genre = result[0].genre || null;
+      }
+    } catch (error) {
+      // Manejo de error si ocurre alguno
+      console.error("Error al obtener datos de la canción:", error);
+    }
+    console.log("corrected:", corrected);
+    console.log("itunesCover:", itunesCover);
+    console.log("genre:", genre);
     // Función para validar los datos de una canción
     function isValidSong(item) {
       return (
@@ -399,10 +420,12 @@ ipcMain.handle("searchSong", async (event, query) => {
     const filteredResults = detailedResults.filter(
       (song) => !song.duration || song.duration >= 50
     );
-
+    console.timeEnd("searchSong"); // Finaliza el temporizador y muestra el tiempo en consola
+    console.log("filteredResults:", filteredResults);
     return filteredResults;
   } catch (err) {
     logDebug("Error searchSong:", err);
+    console.timeEnd("searchSong"); // Finaliza el temporizador y muestra el tiempo en consola
     return [];
   }
 });
@@ -519,7 +542,7 @@ ipcMain.handle("getDownloaded", async () => {
       });
       return obj;
     });
-    console.log(downloaded);
+    console.log(`Se encontraron ${downloaded.length} canciones descargadas.`);
     return downloaded;
   } catch (err) {
     console.error("getDownloaded error:", err);
