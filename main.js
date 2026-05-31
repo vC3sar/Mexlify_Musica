@@ -3,7 +3,8 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
-
+// node fetch con required
+const fetch = require("node-fetch");
 // Solo estos cambios mínimos para mejorar sin romper nada
 const isDev = !app.isPackaged; // ✅ Auto-detecta entorno (en lugar de hardcodear)
 let debug = true; // ✅ Mantener como variable para poder cambiar
@@ -129,7 +130,7 @@ function checkYtdlpUpdate(win) {
     });
 
     const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, ["--update-to nightly"]);
+    const proc = spawn(ytdlpPath, ["--update"]);
 
     let output = "";
 
@@ -175,6 +176,14 @@ function createWindow() {
   return win;
 }
 // ================ INICIALIZACIÓN ================
+app.commandLine.appendSwitch("disable-features", "MediaSessionService");
+app.commandLine.appendSwitch("disable-features", "PreloadMediaEngagementData");
+app.commandLine.appendSwitch(
+  "disable-features",
+  "UseChromeOSDirectVideoDecoder"
+);
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+app.commandLine.appendSwitch("disable-features", "UseAsyncDns");
 app.setName("Mexlify");
 app.setAboutPanelOptions({
   applicationName: "Mexlify",
@@ -227,6 +236,28 @@ function execYtdlp(args = []) {
         } catch (err) {
           reject(new Error("Error parsing JSON: " + err.message));
         }
+      } else {
+        reject(new Error(stderr || `yt-dlp exited with code ${code}`));
+      }
+    });
+  });
+}
+
+// NEW: Función auxiliar para obtener directamente la URL de un stream de yt-dlp
+function execYtdlpGetUrl(args = []) {
+  return new Promise((resolve, reject) => {
+    const ytdlpPath = getYtdlpPath();
+    const proc = spawn(ytdlpPath, args, { stdio: ["pipe", "pipe", "pipe"] });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data) => (stdout += data.toString()));
+    proc.stderr.on("data", (data) => (stderr += data.toString()));
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout.trim()); // Resuelve con la salida estándar (la URL)
       } else {
         reject(new Error(stderr || `yt-dlp exited with code ${code}`));
       }
@@ -320,112 +351,90 @@ async function getCorrectSongName(query) {
 }
 
 // NEW CODEEEEEEEEEEEEEEEEEEEEE
-
+const { search } = require("youtube-sr").default;
 // ------------------- IPC Handlers (TU CÓDIGO ORIGINAL EXACTO) -------------------
+// ✨ BÚSQUEDA ULTRA-OPTIMIZADA CON YOUTUBE-SR
 ipcMain.handle("searchSong", async (event, query) => {
-  console.time("searchSong"); // Empieza el temporizador
-
+  console.time("searchSong");
   logDebug("Buscando:", query);
+
   const limit = query.includes(" - ") ? 1 : 3;
-  query = normalize(query);
+  const normalizedQuery = normalize(query);
 
   try {
-    // Inicializa las constantes con valores predeterminados
-    let corrected = query; // Desactivar corrección por ahora
+    // 1️⃣ Obtener metadatos de iTunes (para cover y género de alta calidad)
+    let corrected = normalizedQuery;
     let itunesCover = null;
     let genre = null;
 
     try {
-      // Espera el resultado de getCorrectSongName
-      const result = query;
+      // Llamar a la función correctamente
+      const result = corrected; //await getCorrectSongName(normalizedQuery);
 
-      // Verifica si hay resultados
-      if (result && result.length > 0) {
-        // Asigna los valores de la primera canción en los resultados
-        corrected = result[0].corrected || query;
+      // Verificar si hay resultados válidos
+      if (result && Array.isArray(result) && result.length > 0) {
+        corrected = result[0].corrected || normalizedQuery;
         itunesCover = result[0].cover || null;
         genre = result[0].genre || null;
+      } else if (result && result.corrected) {
+        // Si result es un objeto simple
+        corrected = result.corrected || normalizedQuery;
+        itunesCover = result.cover || null;
+        genre = result.genre || null;
       }
     } catch (error) {
-      // Manejo de error si ocurre alguno
-      console.error("Error al obtener datos de la canción:", error);
-    }
-    console.log("corrected:", corrected);
-    console.log("itunesCover:", itunesCover);
-    console.log("genre:", genre);
-    // Función para validar los datos de una canción
-    function isValidSong(item) {
-      return (
-        item &&
-        typeof item.title === "string" &&
-        item.title.length > 0 &&
-        typeof item.url === "string" &&
-        item.url.startsWith("https://www.youtube.com/") &&
-        typeof item.duration === "number" &&
-        item.duration >= 50 &&
-        typeof item.uploader === "string" &&
-        item.uploader.length > 0 &&
-        typeof item.thumbnail === "string" &&
-        item.thumbnail.startsWith("https://")
-      );
+      console.error("Error al obtener datos de iTunes:", error);
     }
 
-    // 3️⃣ Ejecutar yt-dlp
-    const searchResults = await execYtdlp([
-      `ytsearch${limit}:music ${corrected} official video`,
-      "--dump-single-json",
-      "--flat-playlist",
-      "--skip-download",
-      "--quiet",
-      "--no-warnings",
-      "--no-check-certificate",
-    ]);
+    logDebug("Búsqueda corregida:", corrected);
+    logDebug("iTunes Cover:", itunesCover);
+    logDebug("Genre:", genre);
 
-    const entries = searchResults.entries || [];
-    const detailedResults = await Promise.all(
-      entries.map(async (entry) => {
-        try {
-          const info = await execYtdlp([
-            entry.url,
-            "--dump-single-json",
-            "--skip-download",
-            "--quiet",
-          ]);
-          //console.log(info);
-          const thumbnail =
-            itunesCover ||
-            info.thumbnail?.replace(/hqdefault\.jpg$/, "maxresdefault.jpg") ||
-            null;
-          return {
-            title: info.title,
-            url: info.webpage_url,
-            duration: info.duration,
-            uploader: info.uploader || info.channel,
-            thumbnail,
-            genre, // <--- Agrega el género aquí
-          };
-        } catch {
-          return {
-            title: entry.title,
-            url: entry.url,
-            duration: null,
-            uploader: null,
-            thumbnail: itunesCover || null,
-            genre, // <--- También aquí
-          };
-        }
-      })
-    );
-    // Filtrar canciones de menos de 60 segundos
+    // 2️⃣ Búsqueda con youtube-sr (ULTRA RÁPIDO - reemplaza yt-dlp)
+    const searchResults = await search(`${corrected} official audio`, {
+      limit: limit,
+      type: "video",
+      safeSearch: false,
+    });
+
+    if (!searchResults || searchResults.length === 0) {
+      logDebug("⚠️ No se encontraron resultados");
+      console.timeEnd("searchSong");
+      return [];
+    }
+
+    // 3️⃣ Mapear resultados directamente (sin requests adicionales)
+    const detailedResults = searchResults.map((video) => {
+      // Priorizar cover de iTunes, luego thumbnail de YouTube en máxima calidad
+      const thumbnail =
+        itunesCover ||
+        video.thumbnail?.url?.replace(/hqdefault\.jpg$/, "maxresdefault.jpg") ||
+        video.thumbnail?.url ||
+        null;
+
+      return {
+        title: video.title,
+        url: video.url,
+        duration: Math.floor(video.duration / 1000), // Convertir ms a segundos
+        uploader: video.channel?.name || "Desconocido",
+        thumbnail,
+        genre,
+      };
+    });
+
+    // 4️⃣ Filtrar canciones muy cortas (menos de 50 segundos)
     const filteredResults = detailedResults.filter(
-      (song) => !song.duration || song.duration >= 50
+      (song) => song.duration >= 50
     );
-    console.timeEnd("searchSong"); // Finaliza el temporizador y muestra el tiempo en consola
+
+    console.timeEnd("searchSong");
+    logDebug(`✅ Encontradas ${filteredResults.length} canciones válidas`);
     console.log("filteredResults:", filteredResults);
+
     return filteredResults;
   } catch (err) {
-    logDebug("Error searchSong:", err);
-    console.timeEnd("searchSong"); // Finaliza el temporizador y muestra el tiempo en consola
+    logDebug("❌ Error searchSong:", err);
+    console.timeEnd("searchSong");
     return [];
   }
 });
@@ -550,6 +559,8 @@ ipcMain.handle("getDownloaded", async () => {
   }
 });
 
+
+
 ipcMain.handle("streamSong", async (event, song) => {
   if (!song?.url && !song?.filename) throw new Error("Objeto inválido");
   console.log("streamSong recibido:", song);
@@ -561,25 +572,23 @@ ipcMain.handle("streamSong", async (event, song) => {
 
   if (streamCache.has(song.url)) return streamCache.get(song.url);
 
-  const info = await execYtdlp([
+  // Usar yt-dlp para obtener directamente la URL del mejor flujo de audio.
+  // Esto es más rápido ya que evita volcar el JSON completo y analizarlo en JS.
+  const streamUrl = await execYtdlpGetUrl([
     song.url,
-    "--dump-single-json",
+    "-f",
+    "bestaudio", // Solicita el mejor formato de audio disponible.
+    "--get-url", // Obtiene solo la URL del flujo.
     "--skip-download",
     "--quiet",
+    "--live-from-start", // Para que los directos empiecen desde el inicio
   ]);
-  if (!info.formats) throw new Error("No hay formatos de audio");
 
-  let audioFormat =
-    info.formats.find((f) => f.itag === 140) ||
-    info.formats.find((f) => f.ext === "m4a") ||
-    info.formats
-      .filter((f) => f.acodec !== "none")
-      .sort((a, b) => (b.abr || 0) - (a.abr || 0))[0];
+  if (!streamUrl) throw new Error("No se encontró una URL de audio válida.");
 
-  if (!audioFormat?.url) throw new Error("No se encontró audio válido");
-
-  streamCache.set(song.url, audioFormat.url);
-  return audioFormat.url;
+  streamCache.set(song.url, streamUrl);
+  console.log("Se obtuvo la URL del stream", streamUrl)
+  return streamUrl;
 });
 
 ipcMain.on("set-debug", (event, value) => {

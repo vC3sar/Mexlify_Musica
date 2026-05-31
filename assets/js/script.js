@@ -120,22 +120,18 @@ async function handleExpiredStream(currentSong) {
     playNextInQueue();
   }
 }
-
 async function playSong(song, isDownloaded = false) {
   debugLog("Reproduciendo:", song.title);
 
   progressBar.disabled = false;
   fcpProgressBar.disabled = false;
 
-  // Intentar obtener la portada de iTunes si no está descargada
-  let coverImageUrl = song.thumbnail; // Usa la portada de la canción por defecto
-
-  console.log("Portada usada:", coverImageUrl);
-  // Establecer la imagen de portada en los elementos correspondientes
+  // Portada
+  let coverImageUrl = song.thumbnail;
   cover.src = coverImageUrl;
   fcp_cover.src = coverImageUrl;
 
-  // Establecer el título y el artista
+  // Título y artista
   songTitle.textContent = cleanSongTitle(song.title);
   songArtist.textContent = song.uploader;
   fcp_songTitle.textContent = cleanSongTitle(song.title);
@@ -143,19 +139,21 @@ async function playSong(song, isDownloaded = false) {
 
   let songTitleText = songTitle.textContent;
   let songArtistText = songArtist.textContent;
+
   let baseArtist = songArtistText
     .replace(/\b(Jr|Sr|feat\.?|ft\.?)\b/gi, "")
     .trim();
+
   let regex = new RegExp(baseArtist, "gi");
-  let songTitleDC = songTitleText.replace(regex, "");
-  songTitleDC = songTitleDC
+  let songTitleDC = songTitleText
+    .replace(regex, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s*[-–—]\s*/g, " ")
     .replace(/(^|\s),\s*/g, "$1")
     .replace(/\(\s*\)/g, "")
     .trim();
 
-  // Actualizar estado de Discord después de 5 segundos
+  // Discord Rich Presence
   setTimeout(async () => {
     await window.electronAPI.setDiscordActivity(
       `Reproduciendo 🎶 | (${formatTime(player.duration)})`,
@@ -163,9 +161,9 @@ async function playSong(song, isDownloaded = false) {
       coverImageUrl,
       false
     );
-  }, 5 * 1000);
+  }, 5000);
 
-  // Pausar audio anterior si existe
+  // Pausar canción anterior
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.src = "";
@@ -174,19 +172,57 @@ async function playSong(song, isDownloaded = false) {
   if (song?.filename?.includes(".mp3")) {
     isDownloaded = true;
   }
+
+  // Obtener URL directo desde ytdlp
   const streamUrl = await window.electronAPI.streamSong(song);
-  player.src = streamUrl;
+
+  //
+  // 🔥 1. Warm-up del CDN (abre conexión y libera headers)
+  //
+  try {
+    await fetch(streamUrl, {
+      method: "GET",
+      headers: { Range: "bytes=0-2000" },
+      cache: "no-store",
+    });
+  } catch (e) {}
+
+  //
+  // 🔥 2. PREFETCH → El truco para reproducción instantánea
+  //
+  let blobUrl;
+  try {
+    const res = await fetch(streamUrl, {
+      headers: { Range: "bytes=0-" },
+      cache: "no-store",
+    });
+
+    const blob = await res.blob();
+
+    // Crear URL local instantáneo
+    blobUrl = URL.createObjectURL(blob);
+  } catch (err) {
+    console.error("Error prefetching blob:", err);
+    blobUrl = streamUrl; // fallback normal
+  }
+
+  //
+  // 🔥 3. Reproducir desde Blob (0 lag)
+  //
+  player.src = blobUrl;
   saySong(`${songTitleText}`);
+
   player.play().catch((err) => {
     handleExpiredStream(song);
     if (isDownloaded) {
-      return debugLog("Reproduciendo musica descargada...");
+      return debugLog("Reproduciendo música descargada...");
     }
-    debugLog("Audio: URL posiblemente expirada o no soportada", err);
+    debugLog("Error al reproducir blob/stream.", err);
   });
+
   currentAudio = player;
 
-  // Actualizar índice si la canción estaba en la cola
+  // Manejo de cola
   const indexInQueue = queue.findIndex((s) => s.url === song.url);
   if (indexInQueue !== -1) {
     currentIndex = indexInQueue;
@@ -196,7 +232,7 @@ async function playSong(song, isDownloaded = false) {
     renderQueue();
   }
 
-  // Actualizar metadata para Media Session API (si está soportada)
+  // MediaSession API
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: songTitleDC,
@@ -206,7 +242,7 @@ async function playSong(song, isDownloaded = false) {
         {
           src:
             coverImageUrl ||
-            "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png", // Usa la portada de iTunes si existe, o una predeterminada
+            "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png",
           sizes: "512x512",
           type: "image/png",
         },
@@ -1292,3 +1328,9 @@ function measureFPS() {
 }
 measureFPS();
 */
+const audio = document.getElementById("player");
+audio.preload = "auto"; // carga inmediata
+audio.autoplay = true; // sin clic
+audio.crossOrigin = "anonymous"; // evita bloqueos
+audio.disableRemotePlayback = true;
+audio.setAttribute("playsinline", "true");
