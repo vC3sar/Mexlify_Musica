@@ -21,6 +21,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return await ipcRenderer.invoke("streamSong", song);
   },
 
+  // Precalienta canciones en segundo plano sin bloquear la UI.
+  prewarmSongs: async (songs, limit = 3) => {
+    return await ipcRenderer.invoke("prewarmSongs", songs, limit);
+  },
+
+  getYtdlpDiagnostics: async () => {
+    return await ipcRenderer.invoke("ytdlp-diagnostics");
+  },
+
+  updateYtdlpNightly: async () => {
+    return await ipcRenderer.invoke("ytdlp-update-nightly");
+  },
+
   // Activar/desactivar modo debug
   setDebug: async (value) => {
     return await ipcRenderer.invoke("set-debug", value);

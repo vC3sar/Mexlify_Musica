@@ -54,6 +54,25 @@ function debugLog(...args) {
   console.log("[DEBUG]", ...args);
 }
 
+function showPlayerStatus(message) {
+  debugLog("[player]", message);
+  if (!message || typeof Notify !== "function") return;
+
+  new Notify({
+    status: "info",
+    title: "Mexlify",
+    text: message,
+    effect: "fade",
+    speed: 300,
+    showIcon: true,
+    showCloseButton: true,
+    autoclose: true,
+    autotimeout: 1800,
+    type: "outline",
+    position: "right top",
+  });
+}
+
 function cleanSongTitle(title) {
   return title
     .replace(
@@ -173,43 +192,22 @@ async function playSong(song, isDownloaded = false) {
     isDownloaded = true;
   }
 
-  // Obtener URL directo desde ytdlp
-  const streamUrl = await window.electronAPI.streamSong(song);
+  showPlayerStatus("Preparando audio...");
 
-  //
-  // 🔥 1. Warm-up del CDN (abre conexión y libera headers)
-  //
+  let streamUrl;
   try {
-    await fetch(streamUrl, {
-      method: "GET",
-      headers: { Range: "bytes=0-2000" },
-      cache: "no-store",
-    });
-  } catch (e) {}
-
-  //
-  // 🔥 2. PREFETCH → El truco para reproducción instantánea
-  //
-  let blobUrl;
-  try {
-    const res = await fetch(streamUrl, {
-      headers: { Range: "bytes=0-" },
-      cache: "no-store",
-    });
-
-    const blob = await res.blob();
-
-    // Crear URL local instantáneo
-    blobUrl = URL.createObjectURL(blob);
+    streamUrl = await window.electronAPI.streamSong(song);
   } catch (err) {
-    console.error("Error prefetching blob:", err);
-    blobUrl = streamUrl; // fallback normal
+    debugLog("No se pudo preparar el audio:", err);
+    showPlayerStatus("No se pudo preparar el audio.");
+    alert(err?.message || "No se pudo preparar el audio.");
+    return;
   }
 
-  //
-  // 🔥 3. Reproducir desde Blob (0 lag)
-  //
-  player.src = blobUrl;
+  showPlayerStatus("Listo para reproducir");
+  player.preload = "auto";
+  player.src = streamUrl;
+  player.load();
   saySong(`${songTitleText}`);
 
   player.play().catch((err) => {
@@ -217,7 +215,7 @@ async function playSong(song, isDownloaded = false) {
     if (isDownloaded) {
       return debugLog("Reproduciendo música descargada...");
     }
-    debugLog("Error al reproducir blob/stream.", err);
+    debugLog("Error al reproducir stream.", err);
   });
 
   currentAudio = player;
@@ -256,6 +254,10 @@ async function playSong(song, isDownloaded = false) {
     navigator.mediaSession.setActionHandler("pause", () => {
       audio.pause();
     });
+  }
+
+  if (queue.length > 0) {
+    window.electronAPI.prewarmSongs(queue.slice(0, 1), 1).catch(debugLog);
   }
 }
 
@@ -495,9 +497,10 @@ async function searchSongDirectPlay(query = "") {
       `;
       resultsList.appendChild(li);
 
-      li.querySelector(".playbtn").addEventListener("click", (e) => {
-        if (li.querySelector(".playbtn").disabled == true) {
-          console.log("⏳ Este botón está bloqueado...");
+      li.querySelector(".playbtn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        if (btn.disabled === true) {
+          console.log("Este boton esta bloqueado...");
           return new Notify({
             status: "warning",
             title: "Espera...",
@@ -505,14 +508,19 @@ async function searchSongDirectPlay(query = "") {
             effect: "fade",
           });
         }
-        li.querySelector(".playbtn").disabled = true;
-        li.querySelector(".playbtn").style.opacity = "0.6";
-        li.querySelector(".playbtn").style.cursor = "not-allowed";
-        playSong(song);
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        btn.style.cursor = "not-allowed";
+        try {
+          await playSong(song);
+        } finally {
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+          }, 1500);
+        }
       });
-      li.querySelector(".playbtn").addEventListener("click", () =>
-        playSong(song)
-      );
       li.querySelector(".download").addEventListener("click", async () => {
         if (li.querySelector(".download").disabled) return;
         li.querySelector(".download").disabled = true;
@@ -878,6 +886,23 @@ async function playRandomSongByArtistDirect() {
 }
 
 // ======= Eventos =======
+player.addEventListener("loadstart", () => {
+  debugLog("Audio: loadstart");
+});
+
+player.addEventListener("canplay", () => {
+  debugLog("Audio: canplay");
+});
+
+player.addEventListener("playing", () => {
+  debugLog("Audio: playing");
+});
+
+player.addEventListener("waiting", () => {
+  debugLog("Audio: waiting");
+  showPlayerStatus("Reintentando conexión...");
+});
+
 player.addEventListener("ended", () => {
   document.querySelector("#progressBar").disabled = true;
   document.querySelector("#fcp-progressbar").disabled = true;
@@ -1295,6 +1320,12 @@ window.electronAPI.onYtdlpUpdate((status) => {
     );
     // guardar estado en localStorage
     localStorage.setItem("engineStatus", "Actualizada");
+  } else if (status.message.includes("yt-dlp version:")) {
+    showUpdateStatus(
+      "Motor detectado",
+      status.message.replace("yt-dlp version:", "Version:")
+    );
+    localStorage.setItem("engineStatus", status.message);
   } else if (status.message.includes("Updating to")) {
     showModal(
       "Actualización",

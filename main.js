@@ -3,6 +3,10 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
+const {
+  createYtdlpResolver,
+  extractVideoId,
+} = require("./services/ytdlpResolver");
 // node fetch con required
 const fetch = require("node-fetch");
 // Solo estos cambios mínimos para mejorar sin romper nada
@@ -123,32 +127,39 @@ function checkYtdlpUpdate(win) {
       return resolve();
     }
 
-    logDebug("Buscando actualizaciones de yt-dlp...");
+    logDebug("Verificando version de yt-dlp...");
     win.webContents.send("ytdlp-update-status", {
-      message: "Buscando actualizaciones de yt-dlp...",
+      message: "Verificando version de yt-dlp...",
       type: "info",
     });
 
     const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, ["--update"]);
-
-    let output = "";
+    const proc = spawn(ytdlpPath, ["--version"], { windowsHide: true });
 
     proc.stdout.on("data", (data) => {
       const message = data.toString();
-      output += message;
-      logDebug(`yt-dlp update: ${message}`);
-      win.webContents.send("ytdlp-update-status", { message, type: "info" });
+      logDebug(`yt-dlp version: ${message}`);
+      win.webContents.send("ytdlp-update-status", {
+        message: `yt-dlp version: ${message.trim()}`,
+        type: "info",
+      });
     });
 
     proc.stderr.on("data", (data) => {
       const message = data.toString();
-      logDebug(`yt-dlp update error: ${message}`);
+      logDebug(`yt-dlp version error: ${message}`);
       win.webContents.send("ytdlp-update-status", { message, type: "error" });
     });
 
+    proc.on("error", (error) => {
+      const message = `No se pudo ejecutar yt-dlp: ${error.message}`;
+      logDebug(message);
+      win.webContents.send("ytdlp-update-status", { message, type: "error" });
+      resolve();
+    });
+
     proc.on("close", (code) => {
-      logDebug(`yt-dlp update process exited with code ${code}`);
+      logDebug(`yt-dlp version process exited with code ${code}`);
       resolve();
     });
   });
@@ -204,10 +215,23 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// ------------------- Cache (TU CÓDIGO ORIGINAL) -------------------
+// ------------------- Cache -------------------
 const itunesCache = new Map();
 const ytdlpCache = new Map();
-const streamCache = new Map();
+
+const resolverCacheFile = path.join(
+  app.getPath("userData"),
+  "cache",
+  "resolver-cache.json"
+);
+
+const ytdlpResolver = createYtdlpResolver({
+  getYtdlpPath,
+  cacheFile: resolverCacheFile,
+  concurrency: 2,
+  timeoutMs: 15000,
+  logger: logDebug,
+});
 
 // ------------------- Utilidades (TU CÓDIGO ORIGINAL EXACTO) -------------------
 function normalize(query) {
@@ -362,6 +386,13 @@ ipcMain.handle("searchSong", async (event, query) => {
   const normalizedQuery = normalize(query);
 
   try {
+    const cachedResults = ytdlpResolver.getCachedSearchResults(normalizedQuery);
+    if (cachedResults?.length) {
+      ytdlpResolver.prewarmTracks(cachedResults, 3);
+      console.timeEnd("searchSong");
+      return cachedResults;
+    }
+
     // 1️⃣ Obtener metadatos de iTunes (para cover y género de alta calidad)
     let corrected = normalizedQuery;
     let itunesCover = null;
@@ -413,10 +444,13 @@ ipcMain.handle("searchSong", async (event, query) => {
         null;
 
       return {
+        videoId: video.id || extractVideoId(video.url),
         title: video.title,
         url: video.url,
+        sourceUrl: video.url,
         duration: Math.floor(video.duration / 1000), // Convertir ms a segundos
         uploader: video.channel?.name || "Desconocido",
+        artist: video.channel?.name || "Desconocido",
         thumbnail,
         genre,
       };
@@ -431,7 +465,13 @@ ipcMain.handle("searchSong", async (event, query) => {
     logDebug(`✅ Encontradas ${filteredResults.length} canciones válidas`);
     console.log("filteredResults:", filteredResults);
 
-    return filteredResults;
+    const cached = ytdlpResolver.rememberSearchResults(
+      normalizedQuery,
+      filteredResults
+    );
+    ytdlpResolver.prewarmTracks(cached, 3);
+
+    return cached;
   } catch (err) {
     logDebug("❌ Error searchSong:", err);
     console.timeEnd("searchSong");
@@ -570,30 +610,72 @@ ipcMain.handle("streamSong", async (event, song) => {
     return `file://${filePath}`;
   }
 
-  if (streamCache.has(song.url)) return streamCache.get(song.url);
-
-  // Usar yt-dlp para obtener directamente la URL del mejor flujo de audio.
-  // Esto es más rápido ya que evita volcar el JSON completo y analizarlo en JS.
-  const streamUrl = await execYtdlpGetUrl([
-    song.url,
-    "-f",
-    "bestaudio", // Solicita el mejor formato de audio disponible.
-    "--get-url", // Obtiene solo la URL del flujo.
-    "--skip-download",
-    "--quiet",
-    "--live-from-start", // Para que los directos empiecen desde el inicio
-  ]);
-
-  if (!streamUrl) throw new Error("No se encontró una URL de audio válida.");
-
-  streamCache.set(song.url, streamUrl);
-  console.log("Se obtuvo la URL del stream", streamUrl)
-  return streamUrl;
+  return ytdlpResolver.resolveTrack(song);
 });
 
-ipcMain.on("set-debug", (event, value) => {
+ipcMain.handle("prewarmSongs", async (event, songs, limit = 3) => {
+  return ytdlpResolver.prewarmTracks(songs, limit);
+});
+
+ipcMain.handle("ytdlp-diagnostics", async () => {
+  const version = await ytdlpResolver.getVersion();
+  return {
+    version,
+    resolver: ytdlpResolver.stats(),
+  };
+});
+
+ipcMain.handle("ytdlp-update-nightly", async () => {
+  return new Promise((resolve) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const proc = spawn(getYtdlpPath(), ["--update-to", "nightly"], {
+      windowsHide: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data) => {
+      const message = data.toString();
+      stdout += message;
+      win?.webContents.send("ytdlp-update-status", {
+        message,
+        type: "info",
+      });
+    });
+
+    proc.stderr.on("data", (data) => {
+      const message = data.toString();
+      stderr += message;
+      win?.webContents.send("ytdlp-update-status", {
+        message,
+        type: "error",
+      });
+    });
+
+    proc.on("error", (error) => {
+      resolve({ success: false, error: error.message });
+    });
+
+    proc.on("close", (code) => {
+      resolve({
+        success: code === 0,
+        output: stdout.trim(),
+        error: code === 0 ? null : stderr.trim() || `yt-dlp exited ${code}`,
+      });
+    });
+  });
+});
+
+ipcMain.handle("set-debug", async (event, value) => {
   debug = value;
   logDebug("Debug cambiado a", debug);
+  return true;
+});
+
+ipcMain.handle("debug-log", async (event, msg) => {
+  logDebug(msg);
+  return true;
 });
 
 ipcMain.handle("get-app-path", async (event, filename) => {
