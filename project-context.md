@@ -64,6 +64,7 @@ resources/logo.png
 resources/logonb.png
 resources/player.gif
 script copy.js
+services/ytdlpResolver.js
 ```
 
 # Files
@@ -153,6 +154,55 @@ const downloadsDir = await window.electronAPI.getAppPath(); // <-- AQUI
 async function deleteDownload(filename)
 ````
 
+## File: services/ytdlpResolver.js
+````javascript
+class ProcessQueue
+⋮----
+add(job)
+⋮----
+next()
+⋮----
+stats()
+⋮----
+function readJson(filePath)
+⋮----
+function writeJsonAtomic(filePath, data)
+⋮----
+function normalizeQuery(query)
+⋮----
+function extractVideoId(sourceUrl)
+⋮----
+function makeTrackKey(track)
+⋮----
+function toPublicTrack(entry)
+⋮----
+function isUsableStream(entry, now = Date.now())
+⋮----
+function classifyYtdlpError(error)
+⋮----
+function createYtdlpResolver(options)
+⋮----
+function persist()
+⋮----
+function rememberTrack(track, extra =
+⋮----
+function rememberSearchResults(query, results)
+⋮----
+function getCachedSearchResults(query)
+⋮----
+function getCachedStream(track)
+⋮----
+function runYtdlpGetUrl(sourceUrl)
+⋮----
+async function resolveTrack(track, options =
+⋮----
+function prewarmTracks(tracks, limit = 3)
+⋮----
+function getVersion()
+⋮----
+stats: () => (
+````
+
 ## File: .github/workflows/node.js.yml
 ````yaml
 name: Node.js CI
@@ -210,28 +260,6 @@ function toggleVoice()
 function say(text)
 ⋮----
 function saySong(message)
-````
-
-## File: preload.js
-````javascript
-searchSong: async (query) =>
-⋮----
-downloadSong: async (song) =>
-⋮----
-getDownloaded: async () =>
-⋮----
-streamSong: async (song) =>
-⋮----
-setDebug: async (value) =>
-⋮----
-log: async (msg) =>
-⋮----
-getAppPath: async () =>
-⋮----
-setDiscordActivity: async (details, state, image, resetTime) =>
-deleteDownload: async (filename) =>
-⋮----
-onYtdlpUpdate: (callback) =>
 ````
 
 ## File: script copy.js
@@ -768,9 +796,39 @@ hr {
 }
 ````
 
+## File: preload.js
+````javascript
+searchSong: async (query) =>
+⋮----
+downloadSong: async (song) =>
+⋮----
+getDownloaded: async () =>
+⋮----
+streamSong: async (song) =>
+⋮----
+prewarmSongs: async (songs, limit = 3) =>
+⋮----
+getYtdlpDiagnostics: async () =>
+⋮----
+updateYtdlpNightly: async () =>
+⋮----
+setDebug: async (value) =>
+⋮----
+log: async (msg) =>
+⋮----
+getAppPath: async () =>
+⋮----
+setDiscordActivity: async (details, state, image, resetTime) =>
+deleteDownload: async (filename) =>
+⋮----
+onYtdlpUpdate: (callback) =>
+````
+
 ## File: assets/js/script.js
 ````javascript
 function debugLog(...args)
+⋮----
+function showPlayerStatus(message)
 ⋮----
 function cleanSongTitle(title)
 ⋮----
@@ -1153,7 +1211,7 @@ function showUpdateStatus(message, sub_message)
     <script src="assets/js/script.js" defer></script>
     <script src="assets/js/topSongs.js" defer></script>
     <script src="assets/js/messages.js" defer></script>
-    <script src="https://unpkg.com/colorthief/dist/color-thief.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/colorthief@2.7.0/dist/color-thief.umd.js"></script>
     <script src="assets/js/style.js" defer></script>
     <script src="assets/js/modal.js" defer></script>
     <script src="assets/js/equalizer.js"></script>

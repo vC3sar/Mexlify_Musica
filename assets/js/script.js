@@ -38,14 +38,43 @@ const queueTabButton = document.getElementById("queueTabButton");
 const queueTab = document.getElementById("queuetab");
 const countryTopContainer = document.getElementById("country-top-container");
 const settingsContainer = document.getElementById("settings");
+// Referencias nuevas — navegación centralizada y queue drawer
+const homeView = document.getElementById("homeView");
+const queueOverlay = document.getElementById("queueOverlay");
+const recentsContainer = document.getElementById("recentsContainer");
+const recentsTab = document.getElementById("recentsTab");
+
+// Playlists DOM
+const playlistsContainer = document.getElementById("playlistsContainer");
+const playlistsTab = document.getElementById("playlistsTab");
+const playlistsGrid = document.getElementById("playlistsGrid");
+const playlistNameInput = document.getElementById("playlistNameInput");
+const createPlaylistBtn = document.getElementById("createPlaylistBtn");
+const playlistDetailView = document.getElementById("playlistDetailView");
+const backToPlaylistsBtn = document.getElementById("backToPlaylistsBtn");
+const currentPlaylistTitle = document.getElementById("currentPlaylistTitle");
+const playPlaylistBtn = document.getElementById("playPlaylistBtn");
+const playlistSongsList = document.getElementById("playlistSongsList");
+
+// Modal Selección Playlist DOM
+const playlistModalOverlay = document.getElementById("playlistModalOverlay");
+const closePlaylistModalBtn = document.getElementById("closePlaylistModalBtn");
+const playlistModalSongTitle = document.getElementById("playlistModalSongTitle");
+const playlistModalList = document.getElementById("playlistModalList");
+const playlistModalNameInput = document.getElementById("playlistModalNameInput");
+const playlistModalCreateBtn = document.getElementById("playlistModalCreateBtn");
+
 // ======= Variables globales =======
 let currentAudio = null;
 let queue = [];
 let currentIndex = -1;
+let playlists = [];
+let selectedSongForPlaylist = null;
 let currentSong = null;
 let lastVolume = 1;
 let isMuted = false;
 let isRepeating = false;
+let recentSongs = [];
 progressBar.disabled = true;
 fcpProgressBar.disabled = true;
 
@@ -56,21 +85,12 @@ function debugLog(...args) {
 
 function showPlayerStatus(message) {
   debugLog("[player]", message);
-  if (!message || typeof Notify !== "function") return;
-
-  new Notify({
-    status: "info",
-    title: "Mexlify",
-    text: message,
-    effect: "fade",
-    speed: 300,
-    showIcon: true,
-    showCloseButton: true,
-    autoclose: true,
-    autotimeout: 1800,
-    type: "outline",
-    position: "right top",
-  });
+  if (!message) return;
+  
+  // Log strictly to our system messages tray to keep the screen clean and avoid toast spam
+  if (window.systemTray) {
+    window.systemTray.addMessage("Reproductor", message, "info");
+  }
 }
 
 function cleanSongTitle(title) {
@@ -140,7 +160,28 @@ async function handleExpiredStream(currentSong) {
   }
 }
 async function playSong(song, isDownloaded = false) {
-  debugLog("Reproduciendo:", song.title);
+  debugLog("Reproduciendo:", song.title || song.Title);
+
+  // Normalizar y guardar en historial de reproducción reciente
+  if (song) {
+    const normalizedSong = {
+      title: song.title || song.Title || "Título desconocido",
+      uploader: song.uploader || song.Uploader || "Artista desconocido",
+      thumbnail: song.thumbnail || song.Thumbnail || "resources/player.gif",
+      duration: song.duration || song.Duration || 0,
+      url: song.url || song.Url || null,
+      filename: song.filename || song.Filename || null,
+      ...song
+    };
+    recentSongs = recentSongs.filter(s => (s.title || s.Title || "").toLowerCase() !== normalizedSong.title.toLowerCase());
+    recentSongs.unshift(normalizedSong);
+    if (recentSongs.length > 50) {
+      recentSongs.pop();
+    }
+    if (window.systemTray) {
+      window.systemTray.addMessage("Reproductor", `Reproduciendo: ${normalizedSong.title} - ${normalizedSong.uploader}`, "music");
+    }
+  }
 
   progressBar.disabled = false;
   fcpProgressBar.disabled = false;
@@ -348,6 +389,7 @@ async function loadDownloaded() {
       <div class="song-actions">
         <button class="play">Reproducir</button>
         <button class="queue"><i class="ph ph-list-plus"></i></button>
+        <button class="add-to-playlist" title="Añadir a playlist"><i class="ph ph-folder-plus"></i></button>
         <button class="deleteThis"><i class="ph ph-trash"></i></button>
       </div>
     `;
@@ -421,22 +463,23 @@ async function loadDownloaded() {
         alert("Error eliminando la descarga.");
       }
     });
+    li.querySelector(".add-to-playlist").addEventListener("click", () => {
+      openPlaylistModal({
+        title: song.Title,
+        uploader: song.Uploader,
+        duration: song.Duration,
+        thumbnail: song.Thumbnail,
+        filename: song.Filename,
+        url: null
+      });
+    });
   });
 }
 
 // ======= Búsqueda =======
 async function searchSongDirectPlay(query = "") {
   const genreEl = document.getElementById("songGenre");
-  searchContainer.style.display = "block";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  searchTab.classList.add("active");
-  downloadsTab.classList.remove("active");
-  queueTab.classList.remove("active");
-  countryTopContainer.style.display = "none";
-  countryTopContainer.classList.remove("active");
-  settingsTabButton.classList.remove("active");
-  settingsContainer.style.display = "none";
+  navigateTo("search");
 
   if (!query) {
     query = searchInput.value.trim();
@@ -579,14 +622,7 @@ async function searchSongs() {
     window.songQueue = null;
     console.log("Se limpió la cola de reproducción automática.");
   }
-  searchContainer.style.display = "block";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  searchTab.classList.add("active");
-  downloadsTab.classList.remove("active");
-  queueTab.classList.remove("active");
-  settingsContainer.style.display = "none";
-  settingsTabButton.classList.remove("active");
+  navigateTo("search");
 
   const query = searchInput.value.trim();
   if (!query) return;
@@ -606,6 +642,7 @@ async function searchSongs() {
             <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
             <button class="download downloadButton"><i class="ph ph-download-simple"></i></button>
             <button class="queue"><i class="ph ph-list-plus"></i></button>
+            <button class="add-to-playlist" title="Añadir a playlist"><i class="ph ph-folder-plus"></i></button>
         </div>
       `;
       resultsList.appendChild(li);
@@ -670,11 +707,17 @@ async function searchSongs() {
           effect: "fade",
         });
         debugLog("Iniciando descarga de:", song.title);
+        if (window.systemTray) {
+          window.systemTray.addMessage("Descarga", `Descargando: ${song.title}`, "info");
+        }
         try {
           const res = await window.electronAPI.downloadSong(song);
           if (res.success) {
             if (res.alreadyExists) {
               debugLog(`La canción ya existe: ${song.title}`);
+              if (window.systemTray) {
+                window.systemTray.addMessage("Descarga", `La canción ya existe: ${song.title}`, "warning");
+              }
               setTimeout(() => {
                 new Notify({
                   status: "warning",
@@ -685,6 +728,9 @@ async function searchSongs() {
               }, 1000);
             } else {
               debugLog(`Descarga completada: ${song.title}`);
+              if (window.systemTray) {
+                window.systemTray.addMessage("Descarga", `Descarga completada: ${song.title}`, "success");
+              }
               new Notify({
                 status: "success",
                 title: "Descarga completada",
@@ -695,10 +741,16 @@ async function searchSongs() {
             await loadDownloaded();
           } else {
             debugLog(`Error descargando ${song.title}: ${res.error}`);
+            if (window.systemTray) {
+              window.systemTray.addMessage("Descarga", `Error al descargar ${song.title}: ${res.error}`, "error");
+            }
             alert(`Error descargando ${song.title}: ${res.error}`);
           }
         } catch (err) {
           debugLog("Error en download listener:", err);
+          if (window.systemTray) {
+            window.systemTray.addMessage("Descarga", `Error inesperado al descargar ${song.title}`, "error");
+          }
           alert(`Error inesperado descargando ${song.title}`);
         } finally {
         }
@@ -706,6 +758,16 @@ async function searchSongs() {
       li.querySelector(".queue").addEventListener("click", () =>
         addToQueue(song)
       );
+      li.querySelector(".add-to-playlist").addEventListener("click", () => {
+        openPlaylistModal({
+          title: song.title,
+          uploader: song.uploader,
+          duration: song.duration,
+          thumbnail: song.thumbnail,
+          url: song.url || song.webpage_url || null,
+          filename: null
+        });
+      });
     });
   } catch (err) {
     resultsList.innerHTML = "<li>Error al buscar canciones</li>";
@@ -1181,88 +1243,212 @@ function handleVolumeChange(e) {
 volumeSlider.addEventListener("input", handleVolumeChange);
 fcp_volumeSlider.addEventListener("input", handleVolumeChange);
 
-// ======= Tabs =======
-homeTab.addEventListener("click", () => {
-  searchContainer.style.display = "block";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  homeTab.classList.add("active");
-  downloadsTab.classList.remove("active");
-  queueTab.classList.remove("active");
-  searchTab.classList.remove("active");
-  countryTopContainer.style.display = "none";
-  countryTopContainer.classList.remove("active");
-  settingsContainer.style.display = "none";
-  settingsTabButton.classList.remove("active");
-});
-searchTab.addEventListener("click", () => {
-  searchContainer.style.display = "block";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  searchTab.classList.add("active");
-  downloadsTab.classList.remove("active");
-  homeTab.classList.remove("active");
-  queueTab.classList.remove("active");
-  countryTopContainer.style.display = "none";
-  countryTopContainer.classList.remove("active");
-  settingsContainer.style.display = "none";
-  settingsTabButton.classList.remove("active");
+// ======= Navegación centralizada =======
+// Todas las vistas de contenido central que navigateTo controla
+const ALL_CONTENT_VIEWS = [searchContainer, downloadsContainer, settingsContainer, countryTopContainer, recentsContainer, playlistsContainer];
+// Todos los nav-links del navbar superior y sidebar
+const ALL_NAV_LINKS = [homeTab, searchTab, downloadsTab, settingsTabButton, playlistsTab];
+
+/**
+ * navigateTo — fuente única de verdad para mostrar/ocultar vistas.
+ * @param {string} view - "home" | "search" | "downloads" | "settings" | "countryTop" | "recents" | "playlists"
+ */
+function navigateTo(view) {
+  // 1. Ocultar TODAS las vistas de contenido
+  ALL_CONTENT_VIEWS.forEach((el) => {
+    if (el) el.classList.add("is-hidden");
+  });
+
+  // 2. Quitar activo de todos los nav-links
+  ALL_NAV_LINKS.forEach((el) => {
+    if (el) el.classList.remove("is-active");
+  });
+
+  // 3. Mostrar/ocultar el homeView (las cards de inicio + bienvenida)
+  if (homeView) homeView.classList.toggle("is-hidden", view !== "home");
+
+  // 4. Activar la vista correcta
+  switch (view) {
+    case "home":
+      searchContainer.classList.remove("is-hidden");
+      homeTab.classList.add("is-active");
+      break;
+    case "search":
+      searchContainer.classList.remove("is-hidden");
+      searchTab.classList.add("is-active");
+      break;
+    case "downloads":
+      downloadsContainer.classList.remove("is-hidden");
+      downloadsTab.classList.add("is-active");
+      break;
+    case "settings":
+      settingsContainer.classList.remove("is-hidden");
+      settingsTabButton.classList.add("is-active");
+      // Activar tab General por defecto si ninguna está activa
+      if (!document.querySelector(".tablinkSettings.is-active")) {
+        const defaultTab = document.getElementById("defaultTab");
+        if (defaultTab) defaultTab.click();
+      }
+      break;
+    case "countryTop":
+      countryTopContainer.classList.remove("is-hidden");
+      break;
+    case "recents":
+      if (recentsContainer) recentsContainer.classList.remove("is-hidden");
+      renderRecents();
+      break;
+    case "playlists":
+      if (playlistsContainer) playlistsContainer.classList.remove("is-hidden");
+      if (playlistsTab) playlistsTab.classList.add("is-active");
+      
+      // Hide detail view by default and show playlists grid
+      if (playlistDetailView) playlistDetailView.classList.add("is-hidden");
+      const createRow = document.querySelector(".playlist-create-row");
+      if (createRow) createRow.classList.remove("is-hidden");
+      if (playlistsGrid) playlistsGrid.classList.remove("is-hidden");
+      renderPlaylists();
+      break;
+  }
+}
+
+// ======= Listeners de navegación (navbar y sidebar) =======
+homeTab.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateTo("home");
 });
 
-downloadsTab.addEventListener("click", () => {
-  searchContainer.style.display = "none";
-  downloadsContainer.style.display = "block";
-  queueTab.style.display = "none";
-  countryTopContainer.style.display = "none";
-  homeTab.classList.remove("active");
-  downloadsTab.classList.add("active");
-  searchTab.classList.remove("active");
-  queueTab.classList.remove("active");
-  countryTopContainer.classList.remove("active");
-  settingsContainer.style.display = "none";
-  settingsTabButton.classList.remove("active");
+searchTab.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateTo("search");
 });
 
-queueTabButton.addEventListener("click", () => {
-  searchContainer.style.display = "none";
-  downloadsContainer.style.display = "none";
-  countryTopContainer.style.display = "none";
-  queueTab.style.display = "block";
-  queueTabButton.classList.add("active");
-  homeTab.classList.remove("active");
-  searchTab.classList.remove("active");
-  downloadsTab.classList.remove("active");
-  countryTopContainer.classList.remove("active");
-  settingsContainer.style.display = "none";
-  settingsTabButton.classList.remove("active");
+downloadsTab.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateTo("downloads");
 });
 
-settingsTabButton.addEventListener("click", () => {
-  searchContainer.style.display = "none";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  countryTopContainer.style.display = "none";
-  homeTab.classList.remove("active");
-  queueTabButton.classList.remove("active");
-  searchTab.classList.remove("active");
-  downloadsTab.classList.remove("active");
-  countryTopContainer.classList.remove("active");
-  settingsContainer.style.display = "block";
-  settingsTabButton.classList.add("active");
+settingsTabButton.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateTo("settings");
 });
 
+if (recentsTab) {
+  recentsTab.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateTo("recents");
+  });
+}
+
+if (playlistsTab) {
+  playlistsTab.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateTo("playlists");
+  });
+}
+
+// ======= Renderizador de Recientes =======
+function renderRecents() {
+  const recentsList = document.getElementById("recentsList");
+  if (!recentsList) return;
+  recentsList.innerHTML = "";
+
+  if (recentSongs.length === 0) {
+    recentsList.innerHTML = "<li style='color: rgba(255,255,255,0.6); padding: 20px; text-align: center; font-family: Poppins, sans-serif;'>No has reproducido ninguna canción en esta sesión aún.</li>";
+    return;
+  }
+
+  recentSongs.forEach((song) => {
+    const li = document.createElement("li");
+    const formattedDuration = typeof song.duration === "number"
+      ? `${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, "0")}`
+      : song.duration || "N/A";
+
+    li.innerHTML = `
+      <img class="play" src="${song.thumbnail}" style="cursor: pointer;">
+      <div class="song-info">
+          <b>${song.title}</b><br>
+          ${song.uploader} (${formattedDuration})
+      </div>
+      <div class="song-actions">
+          <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+          <button class="queue"><i class="ph ph-list-plus"></i></button>
+      </div>
+    `;
+    recentsList.appendChild(li);
+
+    li.querySelector(".play").addEventListener("click", () => playSong(song));
+    
+    const playBtn = li.querySelector(".playbtn");
+    playBtn.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+
+      if (btn.dataset.locked === "true") {
+        console.log("⏳ Este botón está bloqueado...");
+        new Notify({
+          status: "warning",
+          title: "Espera...",
+          text: "La reproducción es automática, espera un momento.",
+          effect: "fade",
+        });
+        return;
+      }
+
+      btn.dataset.locked = "true";
+
+      try {
+        await playSong(song);
+      } catch (err) {
+        console.error("❌ Error en playSong:", err);
+      }
+
+      setTimeout(() => {
+        btn.dataset.locked = "false";
+      }, 5000);
+    });
+
+    li.querySelector(".queue").addEventListener("click", () => addToQueue(song));
+  });
+}
+
+// ======= Queue Drawer =======
+function openQueueDrawer() {
+  if (queueTab) queueTab.classList.add("is-open");
+  if (queueOverlay) queueOverlay.classList.add("is-open");
+  renderQueue(); // refrescar la lista al abrir
+}
+
+function closeQueueDrawer() {
+  if (queueTab) queueTab.classList.remove("is-open");
+  if (queueOverlay) queueOverlay.classList.remove("is-open");
+}
+
+function toggleQueueDrawer() {
+  if (queueTab && queueTab.classList.contains("is-open")) {
+    closeQueueDrawer();
+  } else {
+    openQueueDrawer();
+  }
+}
+
+// Botón "Lista de reproducción" en el player aside
+queueTabButton.addEventListener("click", toggleQueueDrawer);
+
+// Botón queue en el footer compact player
+const fcpQueueBtn = document.getElementById("fcp-queueBtn");
+if (fcpQueueBtn) fcpQueueBtn.addEventListener("click", toggleQueueDrawer);
+
+// Botón X para cerrar el drawer
+const closeQueueBtn = document.getElementById("closeQueueBtn");
+if (closeQueueBtn) closeQueueBtn.addEventListener("click", closeQueueDrawer);
+
+// Clic en el overlay cierra el drawer
+if (queueOverlay) queueOverlay.addEventListener("click", closeQueueDrawer);
+
+// ======= renderCountryTop =======
 function renderCountryTop() {
-  searchContainer.style.display = "none";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  countryTopContainer.style.display = "block";
-  queueTabButton.classList.remove("active");
-  searchTab.classList.remove("active");
-  downloadsTab.classList.remove("active");
+  navigateTo("countryTop");
   countryTopContainer.innerHTML = "<p>Cargando top del país...</p>";
   countryTopContainer.scrollIntoView({ behavior: "smooth" });
-  countryTopContainer.style.visibility = "none";
-  countryTopContainer.classList.add("active");
 }
 
 countryMixbtnA.addEventListener("click", () => {
@@ -1273,17 +1459,11 @@ countryMixbtnB.addEventListener("click", () => {
 });
 
 document.getElementById("backtop").addEventListener("click", () => {
-  searchContainer.style.display = "none";
-  downloadsContainer.style.display = "none";
-  queueTab.style.display = "none";
-  countryTopContainer.style.display = "block";
-  queueTabButton.classList.remove("active");
-  searchTab.classList.remove("active");
-  downloadsTab.classList.remove("active");
+  navigateTo("countryTop");
   countryTopContainer.scrollIntoView({ behavior: "smooth" });
-  countryTopContainer.style.visibility = "none";
-  countryTopContainer.classList.add("active");
 });
+
+
 
 // Listener para actualizaciones de yt-dlp
 function showUpdateStatus(message, sub_message) {
@@ -1318,13 +1498,20 @@ window.electronAPI.onYtdlpUpdate((status) => {
       "El motor está actualizado",
       "La APP funciona correctamente."
     );
+    if (window.systemTray) {
+      window.systemTray.addMessage("Motor de descargas", "El motor yt-dlp está actualizado.", "success");
+    }
     // guardar estado en localStorage
     localStorage.setItem("engineStatus", "Actualizada");
   } else if (status.message.includes("yt-dlp version:")) {
+    const version = status.message.replace("yt-dlp version:", "Version:");
     showUpdateStatus(
       "Motor detectado",
-      status.message.replace("yt-dlp version:", "Version:")
+      version
     );
+    if (window.systemTray) {
+      window.systemTray.addMessage("Motor de descargas", `Motor detectado: ${version}`, "info");
+    }
     localStorage.setItem("engineStatus", status.message);
   } else if (status.message.includes("Updating to")) {
     showModal(
@@ -1332,12 +1519,18 @@ window.electronAPI.onYtdlpUpdate((status) => {
       "Se está actualizando el motor de descargas (yt-dlp)...",
       "info"
     );
+    if (window.systemTray) {
+      window.systemTray.addMessage("Motor de descargas", `Iniciando actualización a la versión más reciente...`, "info");
+    }
   } else if (status.type === "error") {
     showModal(
       "Error de Actualización",
       `No se pudo actualizar yt-dlp: <br><pre>${status.message}</pre>`,
       "error"
     );
+    if (window.systemTray) {
+      window.systemTray.addMessage("Motor de descargas", `Error al actualizar: ${status.message}`, "error");
+    }
   }
 });
 // ======= Inicializar =======
@@ -1365,3 +1558,313 @@ audio.autoplay = true; // sin clic
 audio.crossOrigin = "anonymous"; // evita bloqueos
 audio.disableRemotePlayback = true;
 audio.setAttribute("playsinline", "true");
+
+// ============================================================
+//  PLAYLISTS ENGINE
+// ============================================================
+
+// ---- Persistence ----
+function loadPlaylistsFromStorage() {
+  try {
+    const raw = localStorage.getItem("mexlify_playlists");
+    playlists = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    playlists = [];
+  }
+}
+
+function savePlaylistsToStorage() {
+  localStorage.setItem("mexlify_playlists", JSON.stringify(playlists));
+}
+
+// ---- CRUD helpers ----
+function createPlaylist(name) {
+  if (!name || !name.trim()) return null;
+  const pl = { id: Date.now().toString(), name: name.trim(), songs: [] };
+  playlists.push(pl);
+  savePlaylistsToStorage();
+  return pl;
+}
+
+function deletePlaylist(id) {
+  playlists = playlists.filter(p => p.id !== id);
+  savePlaylistsToStorage();
+}
+
+function addSongToPlaylist(playlistId, song) {
+  const pl = playlists.find(p => p.id === playlistId);
+  if (!pl) return false;
+  const already = pl.songs.some(s =>
+    (s.url && s.url === song.url) ||
+    (s.filename && s.filename === song.filename) ||
+    (s.title === song.title && s.uploader === song.uploader)
+  );
+  if (already) return false;
+  pl.songs.push(song);
+  savePlaylistsToStorage();
+  return true;
+}
+
+// ---- Grid renderer ----
+function renderPlaylists() {
+  if (!playlistsGrid) return;
+  playlistsGrid.innerHTML = "";
+
+  if (playlists.length === 0) {
+    playlistsGrid.innerHTML = `
+      <div class="messages-empty-state" style="grid-column: 1/-1;">
+        <i class="ph ph-playlist" style="font-size:2.5rem; color:rgba(255,0,144,0.4);"></i>
+        <p>No tienes playlists todavía. ¡Crea una!</p>
+      </div>`;
+    return;
+  }
+
+  playlists.forEach(pl => {
+    const card = document.createElement("div");
+    card.className = "playlist-card";
+    card.innerHTML = `
+      <button class="playlist-card-delete-btn" title="Eliminar playlist"><i class="ph ph-trash"></i></button>
+      <div class="playlist-card-icon"><i class="ph ph-playlist"></i></div>
+      <p class="playlist-card-name">${pl.name}</p>
+      <span class="playlist-card-count">${pl.songs.length} canción${pl.songs.length !== 1 ? "es" : ""}</span>
+    `;
+    card.querySelector(".playlist-card-delete-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (confirm(`¿Eliminar la playlist "${pl.name}"?`)) {
+        deletePlaylist(pl.id);
+        renderPlaylists();
+      }
+    });
+    card.addEventListener("click", () => openPlaylistDetail(pl.id));
+    playlistsGrid.appendChild(card);
+  });
+}
+
+// ---- Detail view ----
+function openPlaylistDetail(playlistId) {
+  const pl = playlists.find(p => p.id === playlistId);
+  if (!pl || !playlistDetailView) return;
+
+  // Switch visibility
+  if (playlistsGrid) playlistsGrid.classList.add("is-hidden");
+  const createRow = document.querySelector(".playlist-create-row");
+  if (createRow) createRow.classList.add("is-hidden");
+  playlistDetailView.classList.remove("is-hidden");
+
+  if (currentPlaylistTitle) currentPlaylistTitle.textContent = pl.name;
+
+  // Store current playlist id on the play button
+  if (playPlaylistBtn) playPlaylistBtn.dataset.playlistId = playlistId;
+
+  renderPlaylistSongs(pl);
+}
+
+function renderPlaylistSongs(pl) {
+  if (!playlistSongsList) return;
+  playlistSongsList.innerHTML = "";
+
+  if (pl.songs.length === 0) {
+    playlistSongsList.innerHTML = `
+      <div class="messages-empty-state">
+        <i class="ph ph-music-notes" style="font-size:2rem; color:rgba(255,0,144,0.4);"></i>
+        <p>Esta playlist está vacía. Añade canciones desde Buscar o Fuera de línea.</p>
+      </div>`;
+    return;
+  }
+
+  pl.songs.forEach((song, idx) => {
+    const li = document.createElement("li");
+    const isLocal = !!song.filename;
+    const thumb = song.thumbnail || "resources/player.gif";
+    const dur = song.duration
+      ? (typeof song.duration === "number"
+          ? `${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, "0")}`
+          : song.duration + "s")
+      : "";
+
+    li.innerHTML = `
+      <img class="play" src="${thumb}" alt="${song.title}" style="cursor:pointer;">
+      <div class="song-info">
+        <b>${song.title}</b><br>
+        ${song.uploader || ""} ${dur ? "(" + dur + ")" : ""}
+      </div>
+      <div class="song-actions">
+        <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+        <button class="queue"><i class="ph ph-list-plus"></i></button>
+        ${!isLocal ? `<button class="download-pl"><i class="ph ph-download-simple"></i></button>` : `<span title="Disponible offline" style="color:#00d170; font-size:1.1rem; display:flex; align-items:center;"><i class="ph ph-check-circle"></i></span>`}
+        <button class="remove-from-pl" title="Quitar de playlist"><i class="ph ph-x"></i></button>
+      </div>
+    `;
+    playlistSongsList.appendChild(li);
+
+    const songObj = isLocal ? { title: song.title, uploader: song.uploader, duration: song.duration, thumbnail: song.thumbnail, filename: song.filename } : song;
+
+    li.querySelector(".play").addEventListener("click", () => playSong(songObj, isLocal));
+    li.querySelector(".playbtn").addEventListener("click", () => playSong(songObj, isLocal));
+    li.querySelector(".queue").addEventListener("click", () => addToQueue(songObj, isLocal));
+
+    const removeBtn = li.querySelector(".remove-from-pl");
+    removeBtn.addEventListener("click", () => {
+      pl.songs.splice(idx, 1);
+      savePlaylistsToStorage();
+      renderPlaylistSongs(pl);
+    });
+
+    if (!isLocal) {
+      li.querySelector(".download-pl").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
+        try {
+          const res = await window.electronAPI.downloadSong({
+            title: song.title, uploader: song.uploader,
+            duration: song.duration, thumbnail: song.thumbnail,
+            url: song.url || song.webpage_url
+          });
+          if (res.success) {
+            // Update the song entry in the playlist with the local filename
+            song.filename = res.filename || song.title;
+            savePlaylistsToStorage();
+            new Notify({ status: "success", title: "Descarga completada", text: `"${song.title}"`, effect: "fade" });
+            await loadDownloaded();
+            renderPlaylistSongs(pl); // refresh icons
+          } else {
+            btn.disabled = false; btn.style.opacity = "1";
+            new Notify({ status: "error", title: "Error", text: res.error || "No se pudo descargar", effect: "fade" });
+          }
+        } catch (err) {
+          btn.disabled = false; btn.style.opacity = "1";
+          console.error("Download from playlist error:", err);
+        }
+      });
+    }
+  });
+}
+
+// ---- Play entire playlist ----
+function playPlaylist(playlistId) {
+  const pl = playlists.find(p => p.id === playlistId);
+  if (!pl || pl.songs.length === 0) return;
+
+  queue = pl.songs.map(s => ({
+    title: s.title,
+    uploader: s.uploader,
+    duration: s.duration,
+    thumbnail: s.thumbnail,
+    filename: s.filename || null,
+    url: s.url || null
+  }));
+
+  const first = queue.shift();
+  playSong(first, !!first.filename);
+}
+
+// ---- Modal ----
+function openPlaylistModal(song) {
+  selectedSongForPlaylist = song;
+  if (playlistModalSongTitle) playlistModalSongTitle.textContent = song.title;
+  renderPlaylistModalList();
+  if (playlistModalOverlay) playlistModalOverlay.classList.remove("is-hidden");
+}
+
+function closePlaylistModal() {
+  if (playlistModalOverlay) playlistModalOverlay.classList.add("is-hidden");
+  selectedSongForPlaylist = null;
+  if (playlistModalNameInput) playlistModalNameInput.value = "";
+}
+
+function renderPlaylistModalList() {
+  if (!playlistModalList) return;
+  playlistModalList.innerHTML = "";
+
+  if (playlists.length === 0) {
+    playlistModalList.innerHTML = `<p style="color:rgba(255,255,255,0.4); font-size:0.85rem; text-align:center;">No hay playlists. Crea una abajo.</p>`;
+    return;
+  }
+
+  playlists.forEach(pl => {
+    const item = document.createElement("div");
+    item.className = "playlist-modal-item";
+    item.innerHTML = `<i class="ph ph-playlist"></i> ${pl.name} <span style="margin-left:auto; color:rgba(255,255,255,0.4); font-size:0.8rem;">${pl.songs.length} canciones</span>`;
+    item.addEventListener("click", () => {
+      if (!selectedSongForPlaylist) return;
+      const added = addSongToPlaylist(pl.id, selectedSongForPlaylist);
+      if (added) {
+        new Notify({ status: "success", title: "Añadida", text: `"${selectedSongForPlaylist.title}" → ${pl.name}`, effect: "fade" });
+      } else {
+        new Notify({ status: "warning", title: "Ya existe", text: `"${selectedSongForPlaylist.title}" ya está en "${pl.name}"`, effect: "fade" });
+      }
+      closePlaylistModal();
+    });
+    playlistModalList.appendChild(item);
+  });
+}
+
+// ---- Wire up all playlist event listeners ----
+loadPlaylistsFromStorage();
+
+// Create playlist from main view
+if (createPlaylistBtn) {
+  createPlaylistBtn.addEventListener("click", () => {
+    const name = playlistNameInput ? playlistNameInput.value.trim() : "";
+    if (!name) return;
+    createPlaylist(name);
+    if (playlistNameInput) playlistNameInput.value = "";
+    renderPlaylists();
+  });
+  if (playlistNameInput) {
+    playlistNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") createPlaylistBtn.click();
+    });
+  }
+}
+
+// Back button in detail view
+if (backToPlaylistsBtn) {
+  backToPlaylistsBtn.addEventListener("click", () => {
+    playlistDetailView.classList.add("is-hidden");
+    const createRow = document.querySelector(".playlist-create-row");
+    if (createRow) createRow.classList.remove("is-hidden");
+    if (playlistsGrid) playlistsGrid.classList.remove("is-hidden");
+    renderPlaylists();
+  });
+}
+
+// Play entire playlist button
+if (playPlaylistBtn) {
+  playPlaylistBtn.addEventListener("click", () => {
+    const id = playPlaylistBtn.dataset.playlistId;
+    if (id) playPlaylist(id);
+  });
+}
+
+// Close modal button
+if (closePlaylistModalBtn) {
+  closePlaylistModalBtn.addEventListener("click", closePlaylistModal);
+}
+
+// Close modal on overlay click
+if (playlistModalOverlay) {
+  playlistModalOverlay.addEventListener("click", (e) => {
+    if (e.target === playlistModalOverlay) closePlaylistModal();
+  });
+}
+
+// Create playlist directly from the modal
+if (playlistModalCreateBtn) {
+  playlistModalCreateBtn.addEventListener("click", () => {
+    const name = playlistModalNameInput ? playlistModalNameInput.value.trim() : "";
+    if (!name) return;
+    const pl = createPlaylist(name);
+    if (pl && selectedSongForPlaylist) {
+      addSongToPlaylist(pl.id, selectedSongForPlaylist);
+      new Notify({ status: "success", title: "Playlist creada", text: `"${selectedSongForPlaylist.title}" añadida a "${name}"`, effect: "fade" });
+      closePlaylistModal();
+    }
+  });
+  if (playlistModalNameInput) {
+    playlistModalNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") playlistModalCreateBtn.click();
+    });
+  }
+}

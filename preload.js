@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getAppPath: async () => {
     return await ipcRenderer.invoke("get-app-path");
   },
+
   // DISCORD STATUS
   setDiscordActivity: async (details, state, image, resetTime) => {
     return await ipcRenderer.invoke(
@@ -58,9 +59,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
       resetTime
     );
   },
+
   deleteDownload: async (filename) => {
     return await ipcRenderer.invoke("deleteDownload", filename);
   },
+
+  openExternal: async (url) => {
+    return await ipcRenderer.invoke("open-external", url);
+  },
+
   // Recibir mensajes de actualización de yt-dlp
   onYtdlpUpdate: (callback) => {
     ipcRenderer.on("ytdlp-update-status", (_event, value) => callback(value));

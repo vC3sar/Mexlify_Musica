@@ -264,7 +264,7 @@ function createYtdlpResolver(options) {
 
       const timer = setTimeout(() => {
         settled = true;
-        proc.kill("SIGKILL");
+        proc.kill();
         reject(new Error(`yt-dlp timeout after ${timeoutMs}ms`));
       }, timeoutMs);
 

@@ -1,5 +1,5 @@
 const DiscordRPC = require("discord-rpc");
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
@@ -79,6 +79,16 @@ ipcMain.handle(
     return true;
   }
 );
+
+ipcMain.handle("open-external", async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return true;
+  } catch (error) {
+    console.error("Error al abrir URL externa:", error);
+    return false;
+  }
+});
 
 // ------------------- Paths de binarios (TU CÓDIGO ORIGINAL) -------------------
 function getYtdlpPath() {
@@ -492,6 +502,56 @@ if (!fs.existsSync(downloadsDir)) {
 const metadataDir = path.join(downloadsDir, "metadata");
 if (!fs.existsSync(metadataDir)) fs.mkdirSync(metadataDir, { recursive: true });
 
+function safeParseDate(value) {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function parseMetadataFile(content) {
+  const result = {};
+  content.split(/\r?\n/).forEach((line) => {
+    const idx = line.indexOf(":");
+    if (idx === -1) return;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (key) result[key] = value;
+  });
+  return result;
+}
+
+function resolveDownloadTimestamp(metadata, metadataPath, filePath) {
+  const candidates = [
+    metadata.DownloadedAt,
+    metadata.downloadedAt,
+    metadata.CreatedAt,
+    metadata.createdAt,
+    metadata.SavedAt,
+    metadata.savedAt,
+  ];
+
+  for (const value of candidates) {
+    const parsed = safeParseDate(value);
+    if (parsed) return parsed;
+  }
+
+  try {
+    if (metadataPath && fs.existsSync(metadataPath)) {
+      const stat = fs.statSync(metadataPath);
+      if (stat?.mtimeMs) return stat.mtimeMs;
+    }
+  } catch {}
+
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat?.mtimeMs) return stat.mtimeMs;
+    }
+  } catch {}
+
+  return null;
+}
+
 ipcMain.handle("downloadSong", async (event, song) => {
   try {
     // Validar datos
@@ -536,13 +596,16 @@ ipcMain.handle("downloadSong", async (event, song) => {
     }
 
     // Guardar metadata de manera segura
+    const downloadedAt = new Date().toISOString();
     const metadata = [
       `Title: ${song.title}`,
       `Uploader: ${song.uploader || "N/A"}`,
       `Duration: ${song.duration || "N/A"}`,
       `Filename: ${safeTitle}.mp3`,
       `Thumbnail: ${song.thumbnail || "N/A"}`,
-      `DownloadedAt: ${new Date().toISOString()}`,
+      `DownloadedAt: ${downloadedAt}`,
+      `CreatedAt: ${downloadedAt}`,
+      `SavedAt: ${downloadedAt}`,
     ].join("\n");
 
     fs.writeFileSync(metadataFile, metadata, "utf-8");
@@ -583,14 +646,39 @@ ipcMain.handle("getDownloaded", async () => {
 
     const files = fs.readdirSync(metadataDir).filter((f) => f.endsWith(".txt"));
     const downloaded = files.map((file) => {
-      const content = fs.readFileSync(path.join(metadataDir, file), "utf-8");
-      const obj = {};
-      content.split("\n").forEach((line) => {
-        const [key, ...rest] = line.split(":");
-        obj[key.trim()] = rest.join(":").trim();
-      });
-      return obj;
+      const metadataPath = path.join(metadataDir, file);
+      const content = fs.readFileSync(metadataPath, "utf-8");
+      const obj = parseMetadataFile(content);
+      const fileName = obj.Filename || file.replace(/\.txt$/, ".mp3");
+      const filePath = path.join(downloadsDir, fileName);
+      const downloadedAtMs = resolveDownloadTimestamp(
+        obj,
+        metadataPath,
+        filePath
+      );
+
+      return {
+        ...obj,
+        downloadedAt: obj.DownloadedAt || obj.downloadedAt || null,
+        createdAt: obj.CreatedAt || obj.createdAt || null,
+        savedAt: obj.SavedAt || obj.savedAt || null,
+        fileMtime:
+          filePath && fs.existsSync(filePath)
+            ? new Date(fs.statSync(filePath).mtimeMs).toISOString()
+            : null,
+        downloadedAtMs,
+      };
     });
+
+    downloaded.sort((a, b) => {
+      const aTime = a.downloadedAtMs;
+      const bTime = b.downloadedAtMs;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime - aTime;
+    });
+
     console.log(`Se encontraron ${downloaded.length} canciones descargadas.`);
     return downloaded;
   } catch (err) {

@@ -247,19 +247,24 @@ const gradientController = {
 // JavaScript funcional de tabs
 const settings = {
   openTab(tabId, element) {
-    // Oculta todos los tabs
+    // Oculta todos los tabs con clase is-hidden
     const tabs = document.querySelectorAll("#tabGeneral, #tabTheme");
     tabs.forEach((tab) => {
-      tab.style.display = "none";
+      tab.classList.add("is-hidden");
     });
     // Muestra el tab seleccionado
-    document.getElementById(tabId).style.display = "block";
+    document.getElementById(tabId).classList.remove("is-hidden");
     // Resalta el botón seleccionado
     const buttons = document.querySelectorAll(".tablinkSettings");
-    buttons.forEach((btn) => btn.classList.remove("active"));
+    buttons.forEach((btn) => {
+      btn.classList.remove("active");
+      btn.classList.remove("is-active");
+    });
     element.classList.add("active");
+    element.classList.add("is-active");
   },
 };
+
 
 // Opcional: autoabrir el tab por defecto al cargar
 window.addEventListener("DOMContentLoaded", () => {

@@ -26,37 +26,75 @@
         <img src="logo.png" alt="Logo de mi app" class="app-logo">
         <div class="spinner"></div>
     </div>
+
     <!-- Navbar Liquid Glass -->
     <nav class="navbar glassy">
         <div class="nav-left">
-            <!-- img src="resources/logonb.png" alt="Mexlify Logo" class="nav-logo" -->
             <span class="nav-title company-name">MEXLIFY</span>
         </div>
         <div class="nav-right">
-            <a id="homeTab" href="#home">Inicio</a>
-            <a id="searchTab" href="#search">Buscar</a>
-            <a id="downloadsTab" href="#downloads">Fuera de línea</a>
-            <a id="settingsTab" href="#settings">Ajustes</a>
+            <a id="homeTab" href="#home" data-view="homeView">Inicio</a>
+            <a id="searchTab" href="#search" data-view="searchContainer">Buscar</a>
+            <a id="downloadsTab" href="#downloads" data-view="downloadsContainer">Fuera de línea</a>
+            <a id="settingsTab" href="#settings" data-view="settings">Ajustes</a>
         </div>
     </nav>
-    <div id="app">
-        <div class="vaen-cards-container">
-            <!-- Header de bienvenida -->
-            <div class="vaen-card ListHeader vaen-card-bg1" ->
-                <h1>¡Bienvenido a Mexlify!</h1>
-                <p style="font-family: 'Poppins', sans-serif; font-size: 18px; color: #888; text-align: center;">Escucha
-                    tus canciones favoritas sin anuncios.</p>
-            </div>
-            <div class="vaen-card ListHeader vaen-card-bg2">
-                <h1>Más escuchadas del país</h1>
-                <p>Top 50 de México</p>
-                <button id="btnCountryMixB" class="vaen-play-btn" onclick="playCountry('mexico', 'month')">▶</button>
 
+    <!-- Queue Drawer (nivel body, siempre en DOM) -->
+    <div id="queueOverlay"></div>
+    <div id="queuetab" class="vaen-queue-container">
+        <div class="queue-drawer-header">
+            <h3><i class="ph ph-queue"></i> Lista de reproducción</h3>
+            <button id="closeQueueBtn" class="queue-close-btn" title="Cerrar cola"><i class="ph ph-x"></i></button>
+        </div>
+        <ul id="queueList"></ul>
+    </div>
+
+    <!-- Messages Drawer (nivel body, siempre en DOM) -->
+    <div id="messagesOverlay"></div>
+    <div id="messagestab" class="vaen-messages-container">
+        <div class="messages-drawer-header">
+            <h3><i class="ph ph-bell"></i> Bandeja del Sistema</h3>
+            <div style="display: flex; gap: 8px;">
+                <button id="clearMessagesBtn" class="messages-action-btn" title="Limpiar bandeja"><i class="ph ph-trash"></i></button>
+                <button id="closeMessagesBtn" class="messages-action-btn" title="Cerrar"><i class="ph ph-x"></i></button>
             </div>
-            <div class="vaen-card ListHeader vaen-card-bg3">
-                <h1>Playlist del Día</h1>
-                <p>Las más escuchadas del día</p>
-                <button id="btnCountryMixA" class="vaen-play-btn" onclick="playCountry('global', 'day')">▶</button>
+        </div>
+        <div class="messages-drawer-tabs">
+            <button id="msgTabGeneral" class="msg-tab-btn is-active">General</button>
+            <button id="msgTabSistem" class="msg-tab-btn">Sistem</button>
+        </div>
+        <ul id="messagesList" class="messages-drawer-list"></ul>
+    </div>
+
+    <div id="app">
+        <!-- Home View: greeting header & compact quick-access cards -->
+        <div id="homeView" class="view-section">
+            <div class="home-welcome-header">
+                <h1>¡Bienvenido a Mexlify!</h1>
+                <p>Escucha tus canciones favoritas sin anuncios ni límites.</p>
+            </div>
+            <div class="vaen-cards-container">
+                <div class="vaen-card vaen-card-bg2" onclick="document.getElementById('btnCountryMixB').click()">
+                    <div class="vaen-card-info">
+                        <span class="vaen-card-tag">Top Nacional</span>
+                        <h2 class="vaen-card-title">Más escuchadas de México</h2>
+                        <p class="vaen-card-desc">El Top 50 del país</p>
+                    </div>
+                    <button id="btnCountryMixB" class="vaen-card-play-btn" onclick="event.stopPropagation(); playCountry('mexico', 'month')">
+                        <i class="ph-fill ph-play"></i>
+                    </button>
+                </div>
+                <div class="vaen-card vaen-card-bg3" onclick="document.getElementById('btnCountryMixA').click()">
+                    <div class="vaen-card-info">
+                        <span class="vaen-card-tag">Mix Global</span>
+                        <h2 class="vaen-card-title">Playlist del Día</h2>
+                        <p class="vaen-card-desc">Tendencias del momento</p>
+                    </div>
+                    <button id="btnCountryMixA" class="vaen-card-play-btn" onclick="event.stopPropagation(); playCountry('global', 'day')">
+                        <i class="ph-fill ph-play"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -65,33 +103,53 @@
             <aside class="sidebar">
                 <h3>Menú</h3>
                 <ul>
-                    <li class="menu-link-glass disabled">Favoritos</li>
-                    <li class="menu-link-glass disabled">Recientes</li>
-                    <li class="menu-link-glass"><a target="_blank"
-                            href="https://discord.com/invite/hpRMKdqWRy">Soporte</a></li>
+                    <li id="recentsTab" class="menu-link-glass">
+                        <div class="menu-link-left">
+                            <i class="ph ph-clock-counter-clockwise"></i>
+                            <span>Recientes</span>
+                        </div>
+                    </li>
+                    <li id="playlistsTab" class="menu-link-glass">
+                        <div class="menu-link-left">
+                            <i class="ph ph-playlist"></i>
+                            <span>Playlists</span>
+                        </div>
+                    </li>
+                    <li class="menu-link-glass" onclick="window.electronAPI.openExternal('https://discord.com/invite/hpRMKdqWRy')">
+                        <div class="menu-link-left">
+                            <i class="ph ph-discord-logo"></i>
+                            <span>Soporte</span>
+                        </div>
+                    </li>
                 </ul>
                 <hr>
                 <ul>
-                    <li id="ThemesBtn" class="menu-link-glass disabled">Temas</li>
-                    <li id="ContributionsBtn" class="menu-link-glass disabled">Contribuciones</li>
-                    <li id="messagesBtn" class="menu-link-glass disabled">Mensajes</li>
+                    <li id="messagesBtn" class="menu-link-glass">
+                        <div class="menu-link-left">
+                            <i class="ph ph-bell"></i>
+                            <span>Mensajes</span>
+                        </div>
+                        <span id="messagesBadge" class="sidebar-badge" style="display: none;">0</span>
+                    </li>
                 </ul>
-                <button id="backtop" class="backtop" style="visibility: hidden;">VOLVER AL TOP</button>
+                <button id="backtop" class="backtop is-hidden">VOLVER AL TOP</button>
             </aside>
 
             <!-- Columna central: buscador + resultados -->
             <section class="content glass-box">
-                <!-- Barra de búsqueda -->
-                <div id="searchBar" style="position: relative; width: 60%; margin-bottom: 20px;">
-                    <input id="searchInput" placeholder="Buscar canción">
-                    <span class="searchIcon">🔍</span>
-                </div>
-                <label class="label-info-gray">Para busquedas más precisas añade el autor de la canción</label>
-
-                <!-- Resultados -->
+                <!-- Resultados y vistas de contenido -->
                 <div class="tab-content">
                     <!-- Pestaña Buscar -->
-                    <div id="searchContainer">
+                    <div id="searchContainer" class="view-section">
+                        <!-- Barra de búsqueda -->
+                        <div id="searchBar" style="position: relative; width: 60%; margin-bottom: 12px;">
+                            <input id="searchInput" placeholder="Buscar canción">
+                            <span class="searchIcon">🔍</span>
+                        </div>
+                        <span class="search-tip-label">
+                            <i class="ph ph-lightbulb"></i>
+                            Tip: Para búsquedas más precisas, añade el autor de la canción.
+                        </span>
                         <div class="ListHeader">
                             <h2>Resultados</h2>
                         </div>
@@ -101,7 +159,7 @@
                     </div>
 
                     <!-- Pestaña Descargas -->
-                    <div id="downloadsContainer" style="display:none;">
+                    <div id="downloadsContainer" class="view-section is-hidden">
                         <div class="ListHeader">
                             <h2>Fuera de línea</h2>
                         </div>
@@ -109,16 +167,54 @@
                             <!-- Aquí se cargarán las descargas -->
                         </ul>
                     </div>
-                    <div id="settings" style="display: none;">
+
+                    <!-- Pestaña Recientes -->
+                    <div id="recentsContainer" class="view-section is-hidden">
+                        <div class="ListHeader">
+                            <h2>Recientes (Sesión actual)</h2>
+                        </div>
+                        <ul id="recentsList">
+                            <!-- Aquí se cargarán las canciones reproducidas recientemente -->
+                        </ul>
+                    </div>
+
+                    <!-- Pestaña Playlists -->
+                    <div id="playlistsContainer" class="view-section is-hidden">
+                        <div class="ListHeader">
+                            <h2>Mis Playlists</h2>
+                        </div>
+                        <div class="playlist-create-row">
+                            <input id="playlistNameInput" placeholder="Nombre de la nueva playlist">
+                            <button id="createPlaylistBtn" class="changeBg"><i class="ph ph-plus"></i> Crear</button>
+                        </div>
+                        <div class="playlists-grid" id="playlistsGrid">
+                            <!-- Aquí se cargarán las tarjetas de las playlists creadas -->
+                        </div>
+                        <div id="playlistDetailView" class="playlist-detail-view is-hidden">
+                            <div class="playlist-detail-header">
+                                <button id="backToPlaylistsBtn" class="backtop" style="display: inline-block; width: auto; margin: 0; padding: 8px 16px;"><i class="ph ph-arrow-left"></i> Volver</button>
+                                <h3 id="currentPlaylistTitle" style="margin: 0;">Nombre de la Playlist</h3>
+                                <button id="playPlaylistBtn" class="changeBg" style="margin: 0; padding: 8px 16px;"><i class="ph ph-play"></i> Reproducir Todo</button>
+                            </div>
+                            <ul id="playlistSongsList" class="song-list">
+                                <!-- Canciones de la playlist actual -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Ajustes -->
+                    <div id="settings" class="view-section is-hidden">
                         <div class="ListHeader">
                             <h2>Ajustes</h2>
                         </div>
+                        <!-- Sub-tabs de Ajustes -->
                         <div class="tabsSettings">
                             <button class="tablinkSettings" onclick="settings.openTab('tabGeneral', this)"
                                 id="defaultTab">General</button>
-                            <button class="tablinkSettings" onclick="settings.openTab('tabTheme', this)">Tema</button>
+                            <button class="tablinkSettings" onclick="settings.openTab('tabTheme', this)">Personalización</button>
                         </div>
-                        <div id="tabGeneral" style="display: none;">
+                        <!-- Tab General -->
+                        <div id="tabGeneral" class="is-hidden">
                             <div id="autoPlayRandom" class="settings-option">
                                 <div class="glass-control-ra">
                                     <label for="autoplay" class="glass-label-ra">Reproducción automática</label>
@@ -132,7 +228,7 @@
                                     </label>
                                     <hr>
                                     <small class="small-ra" style="color: #888;">Algunos cambios solo surten efecto
-                                        despues de reiniciar la aplicación.</small>
+                                        después de reiniciar la aplicación.</small>
                                 </div>
                             </div>
                             <hr>
@@ -149,7 +245,7 @@
                                         <option value="high" selected>Alta (256 kbps)</option>
                                     </select>
                                     <hr>
-                                    <span class="small-ra" style="color:#888">La reproducción se reproducira en la mejor
+                                    <span class="small-ra" style="color:#888">La reproducción se reproducirá en la mejor
                                         calidad disponible. Por el momento,
                                         solo se admite la calidad alta.</span>
                                 </div>
@@ -194,7 +290,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="tabTheme" style="display: none;">
+                        <!-- Tab Personalización -->
+                        <div id="tabTheme" class="is-hidden">
                             <div class="settings-option">
                                 <label for="backgroundIMGonPlayCard">Fondo en la tarjeta de reproducción</label>
                                 <br>
@@ -241,25 +338,17 @@
                             </div>
                             <div id="sidebarElements" class="settings-option">
                                 <!-- Opciones de elementos para la barra lateral del reproductor -->
-
                             </div>
                         </div>
                     </div>
-                    <!-- Pestaña Cola de reproducción -->
-                    <div id="queuetab" class="vaen-queue-container" style="display: none;">
-                        <h3>Lista de Reproducción</h3>
-                        <ul id="queueList"></ul>
-                    </div>
 
-
-                    <div id="country-top-container" style="display: none;">
-
-                    </div>
+                    <!-- Country top container -->
+                    <div id="country-top-container" class="view-section is-hidden"></div>
                 </div>
                 <div id="artistRecommends"></div>
             </section>
 
-            <!-- Columna derecha: Player -->
+            <!-- Columna derecha: Player (siempre visible en desktop) -->
             <aside class="player-area">
                 <div id="playerContainer">
                     <div id="playerCard">
@@ -267,14 +356,12 @@
                         <div id="songInfo">
                             <span id="songTitle">Nombre de la canción</span>
                             <span id="songArtist">Artista</span>
-                            <div id="songGenre" style="display:none"></div>
+                            <div id="songGenre" class="is-hidden"></div>
                         </div>
 
                         <!-- Audio invisible -->
-                        <div class="">
-                            <div class="player" style="visibility: hidden;">
-                                <audio id="player" style="visibility: hidden;"></audio>
-                            </div>
+                        <div class="player" style="visibility: hidden;">
+                            <audio id="player" style="visibility: hidden;"></audio>
                         </div>
 
                         <!-- Barra de progreso -->
@@ -296,9 +383,9 @@
                             <input type="range" id="volumeSlider" min="0" max="0.95" step="0.0001" value="0.5">
                         </div>
                         <div>
-                            <button id="queueTabButton" class="queue-button"><i class="fa-solid fa-list-ul"></i> Lista
-                                de
-                                reproducción</button>
+                            <button id="queueTabButton" class="queue-button">
+                                <i class="ph ph-queue"></i> Lista de reproducción
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -306,10 +393,7 @@
         </div>
     </div>
 
-    <!-- footer class="glass-footer">
-        <p>Proyecto financiado y desarrollado por <strong>VAEN Systems</strong></p>
-    </footer -->
-    <hr style="padding-top: 5vh;">
+    <!-- Footer compact player (fuente de verdad en mobile / siempre visible) -->
     <footer class="footer-compact-player">
         <div class="fcp-left">
             <img src="resources/player.gif" alt="Carátula" class="fcp-cover" id="fcp-cover" />
@@ -320,9 +404,9 @@
         </div>
         <div class="fcp-center">
             <div class="fcp-controls-row">
-                <button class="fcp-btn"><i class="ph ph-skip-back"></i></button>
+                <button class="fcp-btn" id="fcp-prevBtn"><i class="ph ph-skip-back"></i></button>
                 <button class="fcp-btn" id="fcp-playPauseBtn"><i class="ph ph-play"></i></button>
-                <button class="fcp-btn"><i class="ph ph-skip-forward"></i></button>
+                <button class="fcp-btn" id="fcp-nextBtn"><i class="ph ph-skip-forward"></i></button>
             </div>
             <div class="fcp-progress">
                 <span class="fcp-time" id="fcp-time">0:00</span>
@@ -337,9 +421,32 @@
             <button class="fcp-btn" id="fcp_muteBtn"><i style="font-size: larger;"
                     class="ph ph-speaker-high"></i></button>
             <input id="fcp-volumeSlider" type="range" class="fcp-volume" min="0" max="0.95" step="0.0001" value="0.5">
-            <button class="fcp-btn queue"><i style="font-size: larger;" class="fa-solid fa-list-ul"></i></button>
+            <button class="fcp-btn" id="fcp-queueBtn" title="Lista de reproducción">
+                <i style="font-size: larger;" class="ph ph-queue"></i>
+            </button>
         </div>
     </footer>
+
+    <!-- Playlist Selection Modal -->
+    <div id="playlistModalOverlay" class="playlist-modal-overlay is-hidden">
+        <div class="playlist-modal-content glass-box">
+            <div class="playlist-modal-header">
+                <h3>Añadir a Playlist</h3>
+                <button id="closePlaylistModalBtn" class="messages-action-btn" title="Cerrar"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="playlist-modal-body">
+                <p class="modal-song-title" id="playlistModalSongTitle">Canción seleccionada</p>
+                <div class="playlist-modal-list" id="playlistModalList">
+                    <!-- List of playlists to choose from -->
+                </div>
+                <div class="playlist-modal-create">
+                    <input id="playlistModalNameInput" placeholder="Nueva playlist...">
+                    <button id="playlistModalCreateBtn" class="changeBg"><i class="ph ph-plus"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="assets/js/script.js" defer></script>
     <script src="assets/js/topSongs.js" defer></script>
     <script src="assets/js/messages.js" defer></script>
