@@ -116,9 +116,9 @@ function normalize(str) {
 }
 
 // ======= Limpieza de Query =======
-function cleanQuery(query, maxChars = 40) {
+function cleanQuery(query) {
   let cleaned = query;
-  maxChars = 28;
+  const maxChars = 28;
   cleaned = cleaned.replace(/\([^)]+\)/g, "");
   cleaned = cleaned.replace(/\[[^\]]+\]/g, "");
   cleaned = cleaned.replace(/feat\.?[^&]*&/gi, "");
@@ -178,6 +178,11 @@ async function playSong(song, isDownloaded = false) {
     if (recentSongs.length > 50) {
       recentSongs.pop();
     }
+    
+    currentSong = normalizedSong;
+    localStorage.setItem("mexlify_last_song", JSON.stringify(normalizedSong));
+    localStorage.setItem("mexlify_last_song_local", isDownloaded ? "true" : "false");
+
     if (window.systemTray) {
       window.systemTray.addMessage("Reproductor", `Reproduciendo: ${normalizedSong.title} - ${normalizedSong.uploader}`, "music");
     }
@@ -333,11 +338,11 @@ function addToQueue(song, isDownloaded = false) {
   let songToplay = song;
   if (isDownloaded) {
     songToplay = {
-      title: song.Title,
-      uploader: song.Uploader,
-      duration: song.Duration,
-      filename: song.Filename,
-      thumbnail: song.Thumbnail,
+      title: song.Title || song.title,
+      uploader: song.Uploader || song.uploader,
+      duration: song.Duration || song.duration,
+      filename: song.Filename || song.filename,
+      thumbnail: song.Thumbnail || song.thumbnail,
     };
   }
 
@@ -887,12 +892,19 @@ async function showArtistRecommendations(artistName) {
 // ======= iTunes y funciones aleatorias =======
 async function getRandomSongByArtist(artistName, excludeTrackName = null) {
   // Búsqueda en iTunes
-  const response = await fetch(
-    `https://itunes.apple.com/search?term=${encodeURIComponent(
-      artistName
-    )}&entity=song&limit=10`
-  );
-  const data = await response.json();
+  let data;
+  try {
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(
+        artistName
+      )}&entity=song&limit=10`
+    );
+    if (!response.ok) return null;
+    data = await response.json();
+  } catch (err) {
+    debugLog("getRandomSongByArtist: error de red:", err);
+    return null;
+  }
   let songs = data.results;
   if (excludeTrackName) {
     songs = songs.filter(
@@ -1069,11 +1081,13 @@ player.addEventListener("timeupdate", () => {
       fcpCurrentTimeEl.textContent = formatTime(currentTime);
     }
   } else {
-    progressBar.value = 0;
-    fcpProgressBar.value = 0;
-    currentTimeEl.textContent = "0:00";
-    fcpCurrentTimeEl.textContent = "0:00";
-    lastDisplayedSecond = -1;
+    if (lastDisplayedSecond !== -1) {
+      progressBar.value = 0;
+      fcpProgressBar.value = 0;
+      currentTimeEl.textContent = "0:00";
+      fcpCurrentTimeEl.textContent = "0:00";
+      lastDisplayedSecond = -1;
+    }
   }
 });
 
@@ -1119,9 +1133,13 @@ searchInput.addEventListener("input", () => {
 [playPauseBtn, fcp_playPauseBtn].forEach((btn) => {
   btn.addEventListener("click", () => {
     if (player.paused) {
-      player.play();
-      playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
-      fcp_playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
+      if ((!player.src || player.src === "") && currentSong) {
+        playSong(currentSong, currentSong.isDownloaded || false);
+      } else {
+        player.play();
+        playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
+        fcp_playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
+      }
     } else {
       player.pause();
       playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
@@ -1171,6 +1189,8 @@ searchInput.addEventListener("input", () => {
       isMuted = true;
       muteBtn.style.backgroundColor = "#080014";
     }
+    localStorage.setItem("mexlify_volume", isMuted ? 0 : lastVolume);
+    localStorage.setItem("mexlify_muted", isMuted ? "true" : "false");
   });
 });
 
@@ -1210,6 +1230,10 @@ function handleVolumeChange(e) {
     isMuted = false;
     muteBtn.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
   }
+
+  // Guardar en localStorage
+  localStorage.setItem("mexlify_volume", value);
+  localStorage.setItem("mexlify_muted", (value === 0 || isMuted) ? "true" : "false");
 
   // Determinar el ícono del botón mute según el volumen
   let iconHtml;
@@ -1868,3 +1892,102 @@ if (playlistModalCreateBtn) {
     });
   }
 }
+
+// ======= Sidebar Collapsible Logic =======
+const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+const sidebarToggleIcon = document.getElementById("sidebarToggleIcon");
+const sidebar = document.querySelector(".sidebar");
+
+if (sidebarToggleBtn && sidebarToggleIcon && sidebar) {
+  const updateSidebarState = (shouldCollapse) => {
+    if (shouldCollapse) {
+      sidebar.classList.add("collapsed");
+      sidebarToggleIcon.className = "ph ph-caret-double-right";
+      sidebarToggleBtn.title = "Expandir menú";
+    } else {
+      sidebar.classList.remove("collapsed");
+      sidebarToggleIcon.className = "ph ph-caret-double-left";
+      sidebarToggleBtn.title = "Colapsar menú";
+    }
+  };
+
+  sidebarToggleBtn.addEventListener("click", () => {
+    const isCollapsed = sidebar.classList.contains("collapsed");
+    updateSidebarState(!isCollapsed);
+  });
+
+  const handleResize = () => {
+    if (window.innerWidth <= 1024) {
+      updateSidebarState(true);
+    } else {
+      updateSidebarState(false);
+    }
+  };
+
+  window.addEventListener("resize", handleResize);
+  handleResize(); // Ejecutar al inicio para ajustar al tamaño actual
+}
+
+// ======= Cargar Volumen Guardado =======
+function initVolume() {
+  const savedVolume = localStorage.getItem("mexlify_volume");
+  const savedMuted = localStorage.getItem("mexlify_muted");
+
+  let volume = 0.5; // fallback predeterminado
+  if (savedVolume !== null) {
+    volume = parseFloat(savedVolume);
+  }
+
+  lastVolume = volume > 0 ? volume : 0.5;
+  isMuted = savedMuted === "true";
+
+  if (isMuted) {
+    player.volume = 0;
+    volumeSlider.value = 0;
+    fcp_volumeSlider.value = 0;
+  } else {
+    player.volume = volume;
+    volumeSlider.value = volume;
+    fcp_volumeSlider.value = volume;
+  }
+
+  handleVolumeChange({ target: { value: isMuted ? 0 : volume } });
+}
+
+// ======= Cargar Última Canción Reproducida =======
+function initLastSong() {
+  const savedSongJson = localStorage.getItem("mexlify_last_song");
+  const isLocal = localStorage.getItem("mexlify_last_song_local") === "true";
+
+  if (savedSongJson) {
+    try {
+      const song = JSON.parse(savedSongJson);
+      currentSong = song;
+      currentSong.isDownloaded = isLocal;
+
+      // Actualizar UI
+      let coverImageUrl = song.thumbnail || "resources/player.gif";
+      cover.src = coverImageUrl;
+      fcp_cover.src = coverImageUrl;
+
+      songTitle.textContent = cleanSongTitle(song.title);
+      songArtist.textContent = song.uploader;
+      fcp_songTitle.textContent = cleanSongTitle(song.title);
+      fcp_songArtist.textContent = song.uploader;
+
+      // Habilitar barra de progreso
+      progressBar.disabled = false;
+      fcpProgressBar.disabled = false;
+
+      debugLog("Última canción cargada:", song.title);
+    } catch (e) {
+      debugLog("Error cargando última canción:", e);
+    }
+  }
+}
+
+// Inicializar configuraciones guardadas
+initVolume();
+initLastSong();
+
+

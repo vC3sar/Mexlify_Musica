@@ -165,6 +165,20 @@ function createYtdlpResolver(options) {
   const queue = new ProcessQueue(concurrency, logger);
 
   function persist() {
+    const now = Date.now();
+    // Evict expired stream entries (tracks whose streamUrl has expired)
+    for (const key of Object.keys(state.tracks)) {
+      const entry = state.tracks[key];
+      if (entry.expiresAt && entry.expiresAt <= now) {
+        delete state.tracks[key];
+      }
+    }
+    // Evict expired search cache entries
+    for (const key of Object.keys(state.searches)) {
+      if (state.searches[key].expiresAt <= now) {
+        delete state.searches[key];
+      }
+    }
     writeJsonAtomic(cacheFile, state);
   }
 

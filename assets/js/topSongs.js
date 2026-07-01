@@ -50,7 +50,7 @@ async function playCountry(countryCode = "mexico", type = "month") {
       </li>`;
     });
     htmlList += "</ol>";
-    container.innerHTML += htmlList;
+    container.insertAdjacentHTML("beforeend", htmlList);
 
     let idxPlaying = null;
     // Agrega evento para reproducir al hacer clic en el nombre de la canción
@@ -82,18 +82,13 @@ async function playCountry(countryCode = "mexico", type = "month") {
       });
     });
 
-    // Ahora sí, el botón existe en el DOM y puedes añadir el event listener
-    setTimeout(() => {
-      let btnPlayAll = document.getElementById("playAllbtn");
-      if (btnPlayAll) {
-        btnPlayAll.addEventListener("click", () => {
-          window.songQueue = data.tracks.map(
-            (track) => `${track.artist} ${track.trackName}`
-          );
-          playNextInQueue();
-        });
-      }
-    }, 1 * 100);
+    // Asignar onclick garantiza un único handler activo (reemplaza cualquier asignación previa)
+    document.getElementById("playAllbtn").onclick = () => {
+      window.songQueue = data.tracks.map(
+        (track) => `${track.artist} ${track.trackName}`
+      );
+      playNextInQueue();
+    };
 
     // Función para reproducir la siguiente canción en la cola
     window.playNextInQueue = function () {

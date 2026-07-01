@@ -243,7 +243,7 @@ const ytdlpResolver = createYtdlpResolver({
   logger: logDebug,
 });
 
-// ------------------- Utilidades (TU CÓDIGO ORIGINAL EXACTO) -------------------
+// ------------------- Utilidades (TU CÃ"DIGO ORIGINAL EXACTO) -------------------
 function normalize(query) {
   return query
     .toLowerCase()
@@ -251,7 +251,7 @@ function normalize(query) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-// ------------------- Función helper para ejecutar yt-dlp (TU CÓDIGO ORIGINAL) -------------------
+// ------------------- FunciÃ³n helper para ejecutar yt-dlp (TU CÃ"DIGO ORIGINAL) -------------------
 function execYtdlp(args = []) {
   return new Promise((resolve, reject) => {
     const ytdlpPath = getYtdlpPath();
@@ -270,28 +270,6 @@ function execYtdlp(args = []) {
         } catch (err) {
           reject(new Error("Error parsing JSON: " + err.message));
         }
-      } else {
-        reject(new Error(stderr || `yt-dlp exited with code ${code}`));
-      }
-    });
-  });
-}
-
-// NEW: Función auxiliar para obtener directamente la URL de un stream de yt-dlp
-function execYtdlpGetUrl(args = []) {
-  return new Promise((resolve, reject) => {
-    const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, args, { stdio: ["pipe", "pipe", "pipe"] });
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (data) => (stdout += data.toString()));
-    proc.stderr.on("data", (data) => (stderr += data.toString()));
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout.trim()); // Resuelve con la salida estándar (la URL)
       } else {
         reject(new Error(stderr || `yt-dlp exited with code ${code}`));
       }

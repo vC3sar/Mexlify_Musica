@@ -27,7 +27,7 @@ body {
 /* Layout principal */
 .main-layout {
     display: grid;
-    grid-template-columns: 220px 1fr 300px;
+    grid-template-columns: auto minmax(0, 1fr) 300px;
     /* sidebar - contenido - sidebar derecho */
     gap: 20px;
     padding: 20px;
@@ -39,7 +39,7 @@ body {
 /* Tablet: ajustar tamaño de columnas */
 @media (max-width: 1024px) {
     .main-layout {
-        grid-template-columns: 180px 1fr 200px;
+        grid-template-columns: auto minmax(0, 1fr) 200px;
         /* reducir ancho de sidebars */
         gap: 15px;
         padding: 15px;
@@ -85,6 +85,9 @@ body {
     color: #fff;
     height: fit-content;
     transition: all 0.3s ease;
+    width: 220px;
+    min-width: 220px;
+    overflow: hidden;
 }
 
 .sidebar h3 {
@@ -96,6 +99,79 @@ body {
     color: rgba(255, 255, 255, 0.45);
     margin: 10px 0 10px 12px;
     user-select: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Sidebar Toggle */
+.sidebar-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px 10px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle-row h3 {
+    margin: 0 0 0 12px !important;
+}
+
+.sidebar-toggle-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.sidebar-toggle-btn:hover {
+    background: rgba(255, 0, 144, 0.15);
+    border-color: rgba(255, 0, 144, 0.4);
+    color: #ffffff;
+    transform: scale(1.05);
+}
+
+/* Estilos para el estado Colapsado (Solo Desktop) */
+@media (min-width: 769px) {
+    .sidebar.collapsed {
+        width: 76px;
+        min-width: 76px;
+        padding: 20px 8px;
+    }
+
+    .sidebar.collapsed .sidebar-toggle-row {
+        justify-content: center;
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .sidebar.collapsed h3,
+    .sidebar.collapsed hr,
+    .sidebar.collapsed #messagesBadge {
+        display: none !important;
+    }
+
+    .sidebar.collapsed ul li {
+        padding: 10px 0;
+        justify-content: center;
+    }
+
+    .sidebar.collapsed ul li .menu-link-left {
+        justify-content: center;
+        gap: 0;
+    }
+
+    .sidebar.collapsed ul li .menu-link-left span {
+        display: none !important;
+    }
 }
 
 /* Lista dentro de la sidebar */
@@ -192,11 +268,17 @@ body {
     .sidebar {
         padding: 10px;
         border-radius: 10px;
+        width: 100% !important;
+        min-width: 100% !important;
     }
 
     .sidebar ul li {
         font-size: 14px;
         margin-bottom: 8px;
+    }
+
+    .sidebar-toggle-row {
+        display: none !important;
     }
 }
 
@@ -220,7 +302,9 @@ body {
     padding: 15px;
     border-radius: 12px;
     color: #fff;
-    max-width: 98%;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .player-area {
