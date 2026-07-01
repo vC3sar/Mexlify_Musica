@@ -533,7 +533,7 @@ async function searchSongDirectPlay(query = "") {
             }
         </div>
         <div class="song-actions">
-            <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+            <button class="playbtn"><i class="ph ph-play"></i></button>
             <button class="download downloadButton"><i class="ph ph-download-simple"></i></button>
             <button class="queue"><i class="ph ph-list-plus"></i></button>
         </div>
@@ -639,7 +639,7 @@ async function searchSongs() {
             ${song.uploader} (${song.duration}s)
         </div>
         <div class="song-actions">
-            <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+            <button class="playbtn"><i class="ph ph-play"></i></button>
             <button class="download downloadButton"><i class="ph ph-download-simple"></i></button>
             <button class="queue"><i class="ph ph-list-plus"></i></button>
             <button class="add-to-playlist" title="Añadir a playlist"><i class="ph ph-folder-plus"></i></button>
@@ -1370,7 +1370,7 @@ function renderRecents() {
           ${song.uploader} (${formattedDuration})
       </div>
       <div class="song-actions">
-          <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+          <button class="playbtn"><i class="ph ph-play"></i></button>
           <button class="queue"><i class="ph ph-list-plus"></i></button>
       </div>
     `;
@@ -1689,7 +1689,7 @@ function renderPlaylistSongs(pl) {
         ${song.uploader || ""} ${dur ? "(" + dur + ")" : ""}
       </div>
       <div class="song-actions">
-        <button class="playbtn"><i class="ph ph-play"></i> Reproducir</button>
+        <button class="playbtn"><i class="ph ph-play"></i></button>
         <button class="queue"><i class="ph ph-list-plus"></i></button>
         ${!isLocal ? `<button class="download-pl"><i class="ph ph-download-simple"></i></button>` : `<span title="Disponible offline" style="color:#00d170; font-size:1.1rem; display:flex; align-items:center;"><i class="ph ph-check-circle"></i></span>`}
         <button class="remove-from-pl" title="Quitar de playlist"><i class="ph ph-x"></i></button>

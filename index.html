@@ -56,8 +56,10 @@
         <div class="messages-drawer-header">
             <h3><i class="ph ph-bell"></i> Bandeja del Sistema</h3>
             <div style="display: flex; gap: 8px;">
-                <button id="clearMessagesBtn" class="messages-action-btn" title="Limpiar bandeja"><i class="ph ph-trash"></i></button>
-                <button id="closeMessagesBtn" class="messages-action-btn" title="Cerrar"><i class="ph ph-x"></i></button>
+                <button id="clearMessagesBtn" class="messages-action-btn" title="Limpiar bandeja"><i
+                        class="ph ph-trash"></i></button>
+                <button id="closeMessagesBtn" class="messages-action-btn" title="Cerrar"><i
+                        class="ph ph-x"></i></button>
             </div>
         </div>
         <div class="messages-drawer-tabs">
@@ -71,8 +73,7 @@
         <!-- Home View: greeting header & compact quick-access cards -->
         <div id="homeView" class="view-section">
             <div class="home-welcome-header">
-                <h1>¡Bienvenido a Mexlify!</h1>
-                <p>Escucha tus canciones favoritas sin anuncios ni límites.</p>
+
             </div>
             <div class="vaen-cards-container">
                 <div class="vaen-card vaen-card-bg2" onclick="document.getElementById('btnCountryMixB').click()">
@@ -81,7 +82,8 @@
                         <h2 class="vaen-card-title">Más escuchadas de México</h2>
                         <p class="vaen-card-desc">El Top 50 del país</p>
                     </div>
-                    <button id="btnCountryMixB" class="vaen-card-play-btn" onclick="event.stopPropagation(); playCountry('mexico', 'month')">
+                    <button id="btnCountryMixB" class="vaen-card-play-btn"
+                        onclick="event.stopPropagation(); playCountry('mexico', 'month')">
                         <i class="ph-fill ph-play"></i>
                     </button>
                 </div>
@@ -91,7 +93,8 @@
                         <h2 class="vaen-card-title">Playlist del Día</h2>
                         <p class="vaen-card-desc">Tendencias del momento</p>
                     </div>
-                    <button id="btnCountryMixA" class="vaen-card-play-btn" onclick="event.stopPropagation(); playCountry('global', 'day')">
+                    <button id="btnCountryMixA" class="vaen-card-play-btn"
+                        onclick="event.stopPropagation(); playCountry('global', 'day')">
                         <i class="ph-fill ph-play"></i>
                     </button>
                 </div>
@@ -115,7 +118,8 @@
                             <span>Playlists</span>
                         </div>
                     </li>
-                    <li class="menu-link-glass" onclick="window.electronAPI.openExternal('https://discord.com/invite/hpRMKdqWRy')">
+                    <li class="menu-link-glass"
+                        onclick="window.electronAPI.openExternal('https://discord.com/invite/hpRMKdqWRy')">
                         <div class="menu-link-left">
                             <i class="ph ph-discord-logo"></i>
                             <span>Soporte</span>
@@ -192,9 +196,12 @@
                         </div>
                         <div id="playlistDetailView" class="playlist-detail-view is-hidden">
                             <div class="playlist-detail-header">
-                                <button id="backToPlaylistsBtn" class="backtop" style="display: inline-block; width: auto; margin: 0; padding: 8px 16px;"><i class="ph ph-arrow-left"></i> Volver</button>
+                                <button id="backToPlaylistsBtn" class="backtop"
+                                    style="display: inline-block; width: auto; margin: 0; padding: 8px 16px;"><i
+                                        class="ph ph-arrow-left"></i> Volver</button>
                                 <h3 id="currentPlaylistTitle" style="margin: 0;">Nombre de la Playlist</h3>
-                                <button id="playPlaylistBtn" class="changeBg" style="margin: 0; padding: 8px 16px;"><i class="ph ph-play"></i> Reproducir Todo</button>
+                                <button id="playPlaylistBtn" class="changeBg" style="margin: 0; padding: 8px 16px;"><i
+                                        class="ph ph-play"></i> Reproducir Todo</button>
                             </div>
                             <ul id="playlistSongsList" class="song-list">
                                 <!-- Canciones de la playlist actual -->
@@ -211,7 +218,8 @@
                         <div class="tabsSettings">
                             <button class="tablinkSettings" onclick="settings.openTab('tabGeneral', this)"
                                 id="defaultTab">General</button>
-                            <button class="tablinkSettings" onclick="settings.openTab('tabTheme', this)">Personalización</button>
+                            <button class="tablinkSettings"
+                                onclick="settings.openTab('tabTheme', this)">Personalización</button>
                         </div>
                         <!-- Tab General -->
                         <div id="tabGeneral" class="is-hidden">
@@ -432,7 +440,8 @@
         <div class="playlist-modal-content glass-box">
             <div class="playlist-modal-header">
                 <h3>Añadir a Playlist</h3>
-                <button id="closePlaylistModalBtn" class="messages-action-btn" title="Cerrar"><i class="ph ph-x"></i></button>
+                <button id="closePlaylistModalBtn" class="messages-action-btn" title="Cerrar"><i
+                        class="ph ph-x"></i></button>
             </div>
             <div class="playlist-modal-body">
                 <p class="modal-song-title" id="playlistModalSongTitle">Canción seleccionada</p>
