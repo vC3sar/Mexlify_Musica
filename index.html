@@ -76,7 +76,10 @@
 
             </div>
             <div class="vaen-cards-container">
-                <div class="vaen-card vaen-card-bg2" onclick="document.getElementById('btnCountryMixB').click()">
+                <div class="vaen-card" onclick="document.getElementById('btnCountryMixB').click()">
+                    <div class="spotify-card-cover">
+                        <img src="https://i.pinimg.com/736x/f0/b6/7f/f0b67f1a0ea24f8b41f08f1e6ceadb8e.jpg" class="spotify-cover-single">
+                    </div>
                     <div class="vaen-card-info">
                         <span class="vaen-card-tag">Top Nacional</span>
                         <h2 class="vaen-card-title">Más escuchadas de México</h2>
@@ -87,7 +90,10 @@
                         <i class="ph-fill ph-play"></i>
                     </button>
                 </div>
-                <div class="vaen-card vaen-card-bg3" onclick="document.getElementById('btnCountryMixA').click()">
+                <div class="vaen-card" onclick="document.getElementById('btnCountryMixA').click()">
+                    <div class="spotify-card-cover">
+                        <img src="https://i.pinimg.com/736x/ca/dc/6d/cadc6d4b166232cd25537d308d4366df.jpg" class="spotify-cover-single">
+                    </div>
                     <div class="vaen-card-info">
                         <span class="vaen-card-tag">Mix Global</span>
                         <h2 class="vaen-card-title">Playlist del Día</h2>
@@ -95,6 +101,20 @@
                     </div>
                     <button id="btnCountryMixA" class="vaen-card-play-btn"
                         onclick="event.stopPropagation(); playCountry('global', 'day')">
+                        <i class="ph-fill ph-play"></i>
+                    </button>
+                </div>
+                <div class="vaen-card" onclick="showMostPlayedList()">
+                    <div class="spotify-card-cover" id="myMostPlayedCover">
+                        <img src="resources/player.gif" class="spotify-cover-single">
+                    </div>
+                    <div class="vaen-card-info">
+                        <span class="vaen-card-tag">Mi Playlist</span>
+                        <h2 class="vaen-card-title">Mis Más Escuchadas</h2>
+                        <p class="vaen-card-desc">Lo que más reproduces</p>
+                    </div>
+                    <button id="btnMyMostPlayed" class="vaen-card-play-btn"
+                        onclick="event.stopPropagation(); playMostPlayedList(true)">
                         <i class="ph-fill ph-play"></i>
                     </button>
                 </div>
@@ -170,6 +190,9 @@
                     <div id="downloadsContainer" class="view-section is-hidden">
                         <div class="ListHeader">
                             <h2>Fuera de línea</h2>
+                            <button id="exportZipBtn" class="changeBg" style="margin: 0; padding: 8px 16px;">
+                                <i class="ph ph-file-zip"></i> Exportar a ZIP
+                            </button>
                         </div>
                         <ul id="downloadsList">
                             <!-- Aquí se cargarán las descargas -->
@@ -381,20 +404,26 @@
                             <div id="time-info">
                                 <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
                             </div>
-                            <div class="audio-player">
-                                <input class="player" type="range" id="progressBar" min="0" max="100" value="0"
+                            <div class="progress-bar-wrapper">
+                                <input type="range" id="progressBar" min="0" max="100" value="0"
                                     step="0.001" disabled>
                             </div>
                         </div>
 
                         <!-- Controles -->
-                        <div class="controls">
-                            <button id="playPauseBtn"><i style="font-size: larger;" class="ph ph-play"></i></button>
-                            <button id="repeatBtn"><i style="font-size: larger;" class="ph ph-repeat-once"></i></button>
-                            <button id="muteBtn"><i style="font-size: larger;" class="ph ph-speaker-high"></i></button>
-                            <input type="range" id="volumeSlider" min="0" max="0.95" step="0.0001" value="0.5">
+                        <div class="controls-container">
+                            <div class="playback-controls">
+                                <button id="prevBtn" title="Anterior"><i style="font-size: larger;" class="ph ph-skip-back"></i></button>
+                                <button id="playPauseBtn"><i style="font-size: larger;" class="ph ph-play"></i></button>
+                                <button id="nextBtn" title="Siguiente"><i style="font-size: larger;" class="ph ph-skip-forward"></i></button>
+                                <button id="repeatBtn"><i style="font-size: larger;" class="ph ph-repeat-once"></i></button>
+                            </div>
+                            <div class="volume-controls-row">
+                                <button id="muteBtn"><i style="font-size: larger;" class="ph ph-speaker-high"></i></button>
+                                <input type="range" id="volumeSlider" min="0" max="0.95" step="0.0001" value="0.5">
+                            </div>
                         </div>
-                        <div>
+                        <div class="queue-button-container">
                             <button id="queueTabButton" class="queue-button">
                                 <i class="ph ph-queue"></i> Lista de reproducción
                             </button>

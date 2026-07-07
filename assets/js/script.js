@@ -17,6 +17,10 @@ const muteBtn = document.getElementById("muteBtn");
 const fcp_muteBtn = document.getElementById("fcp_muteBtn");
 const playPauseBtn = document.getElementById("playPauseBtn");
 const fcp_playPauseBtn = document.getElementById("fcp-playPauseBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const fcp_prevBtn = document.getElementById("fcp-prevBtn");
+const fcp_nextBtn = document.getElementById("fcp-nextBtn");
 const repeatBtn = document.getElementById("repeatBtn");
 const fcp_repeatBtn = document.getElementById("fcp_repeatBtn");
 const progressBar = document.getElementById("progressBar");
@@ -75,6 +79,7 @@ let lastVolume = 1;
 let isMuted = false;
 let isRepeating = false;
 let recentSongs = [];
+let isResolvingSong = false; // Bandera para bloquear peticiones concurrentes de playSong
 progressBar.disabled = true;
 fcpProgressBar.disabled = true;
 
@@ -159,151 +164,203 @@ async function handleExpiredStream(currentSong) {
     playNextInQueue();
   }
 }
-async function playSong(song, isDownloaded = false) {
-  debugLog("Reproduciendo:", song.title || song.Title);
-
-  // Normalizar y guardar en historial de reproducción reciente
-  if (song) {
-    const normalizedSong = {
-      title: song.title || song.Title || "Título desconocido",
-      uploader: song.uploader || song.Uploader || "Artista desconocido",
-      thumbnail: song.thumbnail || song.Thumbnail || "resources/player.gif",
-      duration: song.duration || song.Duration || 0,
-      url: song.url || song.Url || null,
-      filename: song.filename || song.Filename || null,
-      ...song
-    };
-    recentSongs = recentSongs.filter(s => (s.title || s.Title || "").toLowerCase() !== normalizedSong.title.toLowerCase());
-    recentSongs.unshift(normalizedSong);
-    if (recentSongs.length > 50) {
-      recentSongs.pop();
-    }
-    
-    currentSong = normalizedSong;
-    localStorage.setItem("mexlify_last_song", JSON.stringify(normalizedSong));
-    localStorage.setItem("mexlify_last_song_local", isDownloaded ? "true" : "false");
-
-    if (window.systemTray) {
-      window.systemTray.addMessage("Reproductor", `Reproduciendo: ${normalizedSong.title} - ${normalizedSong.uploader}`, "music");
-    }
-  }
-
-  progressBar.disabled = false;
-  fcpProgressBar.disabled = false;
-
-  // Portada
-  let coverImageUrl = song.thumbnail;
-  cover.src = coverImageUrl;
-  fcp_cover.src = coverImageUrl;
-
-  // Título y artista
-  songTitle.textContent = cleanSongTitle(song.title);
-  songArtist.textContent = song.uploader;
-  fcp_songTitle.textContent = cleanSongTitle(song.title);
-  fcp_songArtist.textContent = song.uploader;
-
-  let songTitleText = songTitle.textContent;
-  let songArtistText = songArtist.textContent;
-
-  let baseArtist = songArtistText
-    .replace(/\b(Jr|Sr|feat\.?|ft\.?)\b/gi, "")
-    .trim();
-
-  let regex = new RegExp(baseArtist, "gi");
-  let songTitleDC = songTitleText
-    .replace(regex, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s*[-–—]\s*/g, " ")
-    .replace(/(^|\s),\s*/g, "$1")
-    .replace(/\(\s*\)/g, "")
-    .trim();
-
-  // Discord Rich Presence
-  setTimeout(async () => {
-    await window.electronAPI.setDiscordActivity(
-      `Reproduciendo 🎶 | (${formatTime(player.duration)})`,
-      `${songTitleDC} - ${songArtistText}`,
-      coverImageUrl,
-      false
-    );
-  }, 5000);
-
-  // Pausar canción anterior
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.src = "";
-  }
-
-  if (song?.filename?.includes(".mp3")) {
-    isDownloaded = true;
-  }
-
-  showPlayerStatus("Preparando audio...");
-
-  let streamUrl;
-  try {
-    streamUrl = await window.electronAPI.streamSong(song);
-  } catch (err) {
-    debugLog("No se pudo preparar el audio:", err);
-    showPlayerStatus("No se pudo preparar el audio.");
-    alert(err?.message || "No se pudo preparar el audio.");
+async function playSong(song, isDownloaded = false, forceIndex = -1) {
+  if (isResolvingSong) {
+    debugLog("Ya se está cargando/resolviendo una canción. Ignorando petición redundante.");
     return;
   }
+  isResolvingSong = true;
 
-  showPlayerStatus("Listo para reproducir");
-  player.preload = "auto";
-  player.src = streamUrl;
-  player.load();
-  saySong(`${songTitleText}`);
-
-  player.play().catch((err) => {
-    handleExpiredStream(song);
-    if (isDownloaded) {
-      return debugLog("Reproduciendo música descargada...");
+  try {
+    // Limpiar controlador dinámico de topSongs
+    player.onended = null;
+    
+    // Limpiar cola automática de top country si se reproduce una canción directamente
+    if (forceIndex === -1 && song && !song._fromQueue) {
+      window.songQueue = null;
     }
-    debugLog("Error al reproducir stream.", err);
-  });
 
-  currentAudio = player;
+    debugLog("Reproduciendo:", song.title || song.Title);
 
-  // Manejo de cola
-  const indexInQueue = queue.findIndex((s) => s.url === song.url);
-  if (indexInQueue !== -1) {
-    currentIndex = indexInQueue;
-  } else {
-    queue = [song];
-    currentIndex = 0;
-    renderQueue();
-  }
+    // Normalizar y guardar en historial de reproducción reciente
+    if (song) {
+      const normalizedSong = {
+        title: song.title || song.Title || "Título desconocido",
+        uploader: song.uploader || song.Uploader || "Artista desconocido",
+        thumbnail: song.thumbnail || song.Thumbnail || "resources/player.gif",
+        duration: song.duration || song.Duration || 0,
+        url: song.url || song.Url || null,
+        filename: song.filename || song.Filename || null,
+        ...song
+      };
+      recentSongs = recentSongs.filter(s => (s.title || s.Title || "").toLowerCase() !== normalizedSong.title.toLowerCase());
+      recentSongs.unshift(normalizedSong);
+      if (recentSongs.length > 50) {
+        recentSongs.pop();
+      }
+      
+      currentSong = normalizedSong;
+      localStorage.setItem("mexlify_last_song", JSON.stringify(normalizedSong));
+      localStorage.setItem("mexlify_last_song_local", isDownloaded ? "true" : "false");
 
-  // MediaSession API
-  if ("mediaSession" in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: songTitleDC,
-      artist: songArtistText,
-      album: isDownloaded ? "Descargada" : "En línea",
-      artwork: [
-        {
-          src:
-            coverImageUrl ||
-            "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png",
-          sizes: "512x512",
-          type: "image/png",
-        },
-      ],
+      // Incrementar contador de reproducciones en base de datos SQLite
+      window.electronAPI.incrementPlayCount(normalizedSong).then(() => {
+        // Actualizar la portada de la playlist en tiempo real
+        renderMostPlayedCardCover();
+      }).catch((err) => {
+        console.error("Error al registrar reproducción en SQLite:", err);
+      });
+
+      if (window.systemTray) {
+        window.systemTray.addMessage("Reproductor", `Reproduciendo: ${normalizedSong.title} - ${normalizedSong.uploader}`, "music");
+      }
+    }
+
+    progressBar.disabled = false;
+    fcpProgressBar.disabled = false;
+
+    // Portada
+    let coverImageUrl = song.thumbnail;
+    cover.src = coverImageUrl;
+    fcp_cover.src = coverImageUrl;
+
+    // Título y artista
+    songTitle.textContent = cleanSongTitle(song.title);
+    songArtist.textContent = song.uploader;
+    fcp_songTitle.textContent = cleanSongTitle(song.title);
+    fcp_songArtist.textContent = song.uploader;
+
+    let songTitleText = songTitle.textContent;
+    let songArtistText = songArtist.textContent;
+
+    let baseArtist = songArtistText
+      .replace(/\b(Jr|Sr|feat\.?|ft\.?)\b/gi, "")
+      .trim();
+
+    let regex = new RegExp(baseArtist, "gi");
+    let songTitleDC = songTitleText
+      .replace(regex, "")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s*[-–—]\s*/g, " ")
+      .replace(/(^|\s),\s*/g, "$1")
+      .replace(/\(\s*\)/g, "")
+      .trim();
+
+    // Discord Rich Presence
+    setTimeout(async () => {
+      await window.electronAPI.setDiscordActivity(
+        `Reproduciendo 🎶 | (${formatTime(player.duration)})`,
+        `${songTitleDC} - ${songArtistText}`,
+        coverImageUrl,
+        false
+      );
+    }, 5000);
+
+    // Pausar canción anterior
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.src = "";
+    }
+
+    if (song?.filename?.includes(".mp3")) {
+      isDownloaded = true;
+    }
+
+    showPlayerStatus("Preparando audio...");
+
+    let streamUrl;
+    try {
+      streamUrl = await window.electronAPI.streamSong(song);
+    } catch (err) {
+      debugLog("No se pudo preparar el audio:", err);
+      showPlayerStatus("No se pudo preparar el audio.");
+      alert(err?.message || "No se pudo preparar el audio.");
+      return;
+    }
+
+    showPlayerStatus("Listo para reproducir");
+    player.preload = "auto";
+    player.src = streamUrl;
+    player.load();
+    saySong(`${songTitleText}`);
+
+    player.play().catch((err) => {
+      if (err.name === "AbortError") {
+        debugLog("Reproducción interrumpida por una nueva carga.");
+        return;
+      }
+      if (err.name === "NotAllowedError") {
+        debugLog("Reproducción bloqueada por políticas de reproducción automática.");
+        return;
+      }
+      handleExpiredStream(song);
+      if (isDownloaded) {
+        return debugLog("Reproduciendo música descargada...");
+      }
+      debugLog("Error al reproducir stream.", err);
     });
 
-    navigator.mediaSession.setActionHandler("play", () => {
-      audio.play();
-    });
+    currentAudio = player;
 
-    navigator.mediaSession.setActionHandler("pause", () => {
-      audio.pause();
-    });
-  }
+    // Manejo de cola
+    if (forceIndex !== -1) {
+      currentIndex = forceIndex;
+      renderQueue();
+    } else {
+      const indexInQueue = queue.findIndex((s) => 
+        (s.url && s.url === song.url) || 
+        (s.filename && s.filename === song.filename) || 
+        (s.title === song.title && s.uploader === song.uploader)
+      );
+      if (indexInQueue !== -1) {
+        currentIndex = indexInQueue;
+        renderQueue();
+      } else {
+        queue = [song];
+        currentIndex = 0;
+        renderQueue();
+      }
+    }
 
-  if (queue.length > 0) {
-    window.electronAPI.prewarmSongs(queue.slice(0, 1), 1).catch(debugLog);
+    // MediaSession API
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: songTitleDC,
+        artist: songArtistText,
+        album: isDownloaded ? "Descargada" : "En línea",
+        artwork: [
+          {
+            src:
+              coverImageUrl ||
+              "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => {
+        audio.play();
+      });
+
+      navigator.mediaSession.setActionHandler("pause", () => {
+        audio.pause();
+      });
+
+      navigator.mediaSession.setActionHandler("previoustrack", () => {
+        playPrev();
+      });
+
+      navigator.mediaSession.setActionHandler("nexttrack", () => {
+        playNext();
+      });
+    }
+
+    if (queue.length > 0) {
+      window.electronAPI.prewarmSongs(queue.slice(0, 1), 1).catch(debugLog);
+    }
+  } finally {
+    isResolvingSong = false;
   }
 }
 
@@ -316,18 +373,20 @@ function renderQueue() {
   queue.forEach((song, index) => {
     const li = document.createElement("li");
     li.classList.add("queue-item");
+    if (index === currentIndex) {
+      li.classList.add("playing");
+    }
     li.innerHTML = `
       <img class="queue-thumb" src="${song.thumbnail}" alt="${song.title}">
       <span class="song-title">${song.title}</span>
     `;
+    const isLocal = !!song.filename;
     li.querySelector(".song-title").addEventListener("click", () => {
-      currentIndex = index;
-      playSong(queue[currentIndex]);
+      playSong(song, isLocal, index);
       renderQueue();
     });
     li.querySelector(".queue-thumb").addEventListener("click", () => {
-      currentIndex = index;
-      playSong(queue[currentIndex]);
+      playSong(song, isLocal, index);
       renderQueue();
     });
     queueElement.appendChild(li);
@@ -352,18 +411,52 @@ function addToQueue(song, isDownloaded = false) {
   setTimeout(renderQueue, 4000);
 }
 
-function playNextInQueue() {
+function playNext() {
   if (queue.length === 0) {
     currentSong = null;
     return;
   }
-  console.log(queue);
+  
+  if (currentIndex < queue.length - 1) {
+    currentIndex++;
+    const nextSong = queue[currentIndex];
+    nextSong._fromQueue = true;
+    playSong(nextSong, !!nextSong.filename, currentIndex);
+  } else {
+    // Hemos llegado al final de la cola
+    const autoplayCheckbox = document.getElementById("autoplay");
+    const isAutoplayEnabled = autoplayCheckbox ? autoplayCheckbox.checked : true;
+    
+    if (isAutoplayEnabled && !window.songQueue) {
+      playRandomSongByArtistDirect();
+    } else {
+      debugLog("Fin de la cola de reproducción.");
+    }
+  }
+}
 
-  currentSong = queue.shift();
-  //debug
-  console.log("Siguiente en cola:", currentSong.title);
-  console.log("Canciones restantes en cola:", queue.length);
-  playSong(currentSong);
+function playPrev() {
+  if (queue.length === 0) return;
+  
+  // Si lleva más de 3 segundos reproduciéndose, reiniciar
+  if (player && player.currentTime > 3) {
+    player.currentTime = 0;
+    return;
+  }
+  
+  if (currentIndex > 0) {
+    currentIndex--;
+    const prevSong = queue[currentIndex];
+    prevSong._fromQueue = true;
+    playSong(prevSong, !!prevSong.filename, currentIndex);
+  } else {
+    // Reiniciar primera canción
+    if (player) player.currentTime = 0;
+  }
+}
+
+function playNextInQueue() {
+  playNext();
 }
 
 // ======= Descargas =======
@@ -393,7 +486,7 @@ async function loadDownloaded() {
       </div>
       <div class="song-actions">
         <button class="play">Reproducir</button>
-        <button class="queue"><i class="ph ph-list-plus"></i></button>
+        <button class="queue" title="Añadir a la cola"><i class="ph ph-list-plus"></i></button>
         <button class="add-to-playlist" title="Añadir a playlist"><i class="ph ph-folder-plus"></i></button>
         <button class="deleteThis"><i class="ph ph-trash"></i></button>
       </div>
@@ -540,7 +633,7 @@ async function searchSongDirectPlay(query = "") {
         <div class="song-actions">
             <button class="playbtn"><i class="ph ph-play"></i></button>
             <button class="download downloadButton"><i class="ph ph-download-simple"></i></button>
-            <button class="queue"><i class="ph ph-list-plus"></i></button>
+            <button class="queue" title="Añadir a la cola"><i class="ph ph-list-plus"></i></button>
         </div>
       `;
       resultsList.appendChild(li);
@@ -646,7 +739,7 @@ async function searchSongs() {
         <div class="song-actions">
             <button class="playbtn"><i class="ph ph-play"></i></button>
             <button class="download downloadButton"><i class="ph ph-download-simple"></i></button>
-            <button class="queue"><i class="ph ph-list-plus"></i></button>
+            <button class="queue" title="Añadir a la cola"><i class="ph ph-list-plus"></i></button>
             <button class="add-to-playlist" title="Añadir a playlist"><i class="ph ph-folder-plus"></i></button>
         </div>
       `;
@@ -1005,11 +1098,7 @@ player.addEventListener("ended", () => {
   }, 5 * 1000);
   // Reproducir siguiente en cola o canción aleatoria
   if (isRepeating) return;
-  if (queue.length > 0) {
-    playNextInQueue();
-  } else if (!window.songQueue) {
-    playRandomSongByArtistDirect();
-  }
+  playNext();
 
   // Recomendaciones con Spotify
   const songArtist = document.getElementById("songArtist");
@@ -1146,6 +1235,22 @@ searchInput.addEventListener("input", () => {
       fcp_playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
     }
   });
+});
+
+[prevBtn, fcp_prevBtn].forEach((btn) => {
+  if (btn) {
+    btn.addEventListener("click", () => {
+      playPrev();
+    });
+  }
+});
+
+[nextBtn, fcp_nextBtn].forEach((btn) => {
+  if (btn) {
+    btn.addEventListener("click", () => {
+      playNext();
+    });
+  }
 });
 
 [repeatBtn, fcp_repeatBtn].forEach((btn) => {
@@ -1395,7 +1500,7 @@ function renderRecents() {
       </div>
       <div class="song-actions">
           <button class="playbtn"><i class="ph ph-play"></i></button>
-          <button class="queue"><i class="ph ph-list-plus"></i></button>
+          <button class="queue" title="Añadir a la cola"><i class="ph ph-list-plus"></i></button>
       </div>
     `;
     recentsList.appendChild(li);
@@ -1683,6 +1788,25 @@ function openPlaylistDetail(playlistId) {
   renderPlaylistSongs(pl);
 }
 
+function playPlaylistSong(playlist, clickedIndex) {
+  // Configurar la cola con todas las canciones de la playlist
+  queue = playlist.songs.map(s => ({
+    title: s.title,
+    uploader: s.uploader,
+    duration: s.duration,
+    thumbnail: s.thumbnail,
+    filename: s.filename || null,
+    url: s.url || null
+  }));
+
+  renderQueue();
+
+  const song = queue[clickedIndex];
+  if (song) {
+    playSong(song, !!song.filename, clickedIndex);
+  }
+}
+
 function renderPlaylistSongs(pl) {
   if (!playlistSongsList) return;
   playlistSongsList.innerHTML = "";
@@ -1714,7 +1838,7 @@ function renderPlaylistSongs(pl) {
       </div>
       <div class="song-actions">
         <button class="playbtn"><i class="ph ph-play"></i></button>
-        <button class="queue"><i class="ph ph-list-plus"></i></button>
+        <button class="queue" title="Añadir a la cola"><i class="ph ph-list-plus"></i></button>
         ${!isLocal ? `<button class="download-pl"><i class="ph ph-download-simple"></i></button>` : `<span title="Disponible offline" style="color:#00d170; font-size:1.1rem; display:flex; align-items:center;"><i class="ph ph-check-circle"></i></span>`}
         <button class="remove-from-pl" title="Quitar de playlist"><i class="ph ph-x"></i></button>
       </div>
@@ -1723,8 +1847,8 @@ function renderPlaylistSongs(pl) {
 
     const songObj = isLocal ? { title: song.title, uploader: song.uploader, duration: song.duration, thumbnail: song.thumbnail, filename: song.filename } : song;
 
-    li.querySelector(".play").addEventListener("click", () => playSong(songObj, isLocal));
-    li.querySelector(".playbtn").addEventListener("click", () => playSong(songObj, isLocal));
+    li.querySelector(".play").addEventListener("click", () => playPlaylistSong(pl, idx));
+    li.querySelector(".playbtn").addEventListener("click", () => playPlaylistSong(pl, idx));
     li.querySelector(".queue").addEventListener("click", () => addToQueue(songObj, isLocal));
 
     const removeBtn = li.querySelector(".remove-from-pl");
@@ -1779,8 +1903,10 @@ function playPlaylist(playlistId) {
     url: s.url || null
   }));
 
-  const first = queue.shift();
-  playSong(first, !!first.filename);
+  renderQueue();
+
+  // Reproducir la primera canción de la cola
+  playSong(queue[0], !!queue[0].filename, 0);
 }
 
 // ---- Modal ----
@@ -1986,8 +2112,273 @@ function initLastSong() {
   }
 }
 
+// ======= Exportar música a ZIP =======
+const exportZipBtn = document.getElementById("exportZipBtn");
+if (exportZipBtn) {
+  exportZipBtn.addEventListener("click", async () => {
+    try {
+      const downloadedSongs = await window.electronAPI.getDownloaded();
+      if (!downloadedSongs || downloadedSongs.length === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "Sin descargas",
+          text: "No tienes canciones descargadas para exportar.",
+          confirmButtonColor: "#000",
+          confirmButtonText: "Entendido",
+          background: "rgba(255, 255, 255, 0.95)",
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: "Exportando biblioteca...",
+        html: "Comprimiendo tus canciones fuera de línea en un archivo ZIP. Por favor, espera...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: "rgba(255, 255, 255, 0.95)",
+      });
+
+      const res = await window.electronAPI.exportDownloadsToZip();
+
+      if (res.success) {
+        Swal.fire({
+          icon: "success",
+          title: "¡Exportación exitosa!",
+          text: `Tu música se ha exportado correctamente en:\n${res.path}`,
+          confirmButtonColor: "#000",
+          confirmButtonText: "Genial",
+          background: "rgba(255, 255, 255, 0.95)",
+        });
+      } else {
+        if (res.error === "Operación cancelada por el usuario") {
+          Swal.close();
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error al exportar",
+            text: res.error || "Ocurrió un error desconocido al exportar.",
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Cerrar",
+            background: "rgba(255, 255, 255, 0.95)",
+          });
+        }
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error inesperado",
+        text: err.message || "Ocurrió un error inesperado al procesar la exportación.",
+        confirmButtonColor: "#d33",
+        confirmButtonText: "Cerrar",
+        background: "rgba(255, 255, 255, 0.95)",
+      });
+    }
+  });
+}
+
 // Inicializar configuraciones guardadas
 initVolume();
 initLastSong();
+renderMostPlayedCardCover();
+
+// ======= PLAYLIST: MIS MÁS ESCUCHADAS (SQLite) =======
+async function showMostPlayedList() {
+  try {
+    // 1. Navegar a la vista de countryTop que es la que se usa para listas detalladas
+    navigateTo("countryTop");
+    
+    const container = document.getElementById("country-top-container");
+    if (!container) return;
+    
+    container.innerHTML = "<h3>Mi Playlist - Cargando...</h3>";
+    container.scrollIntoView({ behavior: "smooth" });
+    
+    // 2. Obtener canciones de SQLite
+    const songs = await window.electronAPI.getMostPlayedSongs();
+    
+    if (!songs || songs.length === 0) {
+      container.innerHTML = `
+        <h3>Mi Playlist - Mis Más Escuchadas</h3>
+        <div class="messages-empty-state" style="padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
+          <i class="ph ph-music-notes" style="font-size:3rem; color:rgba(255,0,144,0.4);"></i>
+          <p style="color: #fff; font-family: Poppins, sans-serif; font-size: 1.1rem; margin: 0;">Aún no tienes canciones en tu top personal.</p>
+          <small style="color: rgba(255,255,255,0.6); max-width: 320px;">¡Reproduce tus canciones favoritas en la app para verlas listadas aquí!</small>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = `<h3>Mi Playlist - Mis Más Escuchadas</h3>`;
+    
+    // Crear el botón "Reproducir todo"
+    const btnPlayAll = document.createElement("button");
+    btnPlayAll.id = "playAllbtn";
+    btnPlayAll.className = "vaen-play-btn";
+    btnPlayAll.textContent = "▶ Reproducir todo";
+    btnPlayAll.style.marginBottom = "15px";
+    container.appendChild(btnPlayAll);
+    
+    // Listado de tracks
+    let htmlList = "<ol class='most-played-list' style='list-style: none; padding: 0; margin: 0;'>";
+    songs.forEach((song, idx) => {
+      const playCountText = song.playCount === 1 ? "reproducción" : "reproducciones";
+      const thumb = song.thumbnail || "resources/player.gif";
+      const dur = song.duration
+        ? `${Math.floor(song.duration / 60)}:${String(song.duration % 60).padStart(2, "0")}`
+        : "N/A";
+        
+      htmlList += `
+        <li style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" class="most-played-item" data-index="${idx}">
+          <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1; padding-right: 15px;">
+            <span style="font-weight: bold; color: rgba(255,255,255,0.5); min-width: 20px; font-family: Poppins, sans-serif;">${idx + 1}</span>
+            <img src="${thumb}" style="width: 42px; height: 42px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;" class="play-most-played-thumb">
+            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <a href="#" class="play-song-link" style="font-weight: bold; text-decoration: none; color: #fff; font-family: Poppins, sans-serif; font-size: 0.95rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cleanSongTitle(song.title)}</a>
+              <span style="color: rgba(255,255,255,0.6); font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${song.uploader}</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="color: #aaa; font-size: 0.85rem; font-family: Poppins, sans-serif;">${dur}</span>
+            <span style="color: #ff0090; font-size: 0.85rem; font-family: Poppins, sans-serif; font-weight: 700; background: rgba(255,0,144,0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,0,144,0.2); white-space: nowrap;">${song.playCount} ${playCountText}</span>
+          </div>
+        </li>
+      `;
+    });
+    htmlList += "</ol>";
+    container.insertAdjacentHTML("beforeend", htmlList);
+    
+    // Click events
+    const items = container.querySelectorAll(".most-played-item");
+    items.forEach((item, idx) => {
+      const song = songs[idx];
+      const link = item.querySelector(".play-song-link");
+      const thumb = item.querySelector(".play-most-played-thumb");
+      
+      const playThis = (e) => {
+        if (e) e.preventDefault();
+        
+        // Cargar playlist completa en cola de reproducción
+        queue = songs.map(s => ({
+          title: s.title,
+          uploader: s.uploader,
+          duration: s.duration,
+          thumbnail: s.thumbnail,
+          filename: s.filename || null,
+          url: s.url || null
+        }));
+        renderQueue();
+        
+        playSong(queue[idx], !!queue[idx].filename, idx);
+        
+        // Highlight active playing
+        container.querySelectorAll(".play-song-link").forEach((a, i) => {
+          a.style.color = (i === idx) ? "#ff0090" : "#fff";
+        });
+      };
+      
+      link.addEventListener("click", playThis);
+      if (thumb) thumb.addEventListener("click", playThis);
+    });
+    
+    // Play all button handler
+    btnPlayAll.onclick = () => {
+      queue = songs.map(s => ({
+        title: s.title,
+        uploader: s.uploader,
+        duration: s.duration,
+        thumbnail: s.thumbnail,
+        filename: s.filename || null,
+        url: s.url || null
+      }));
+      renderQueue();
+      if (queue.length > 0) {
+        playSong(queue[0], !!queue[0].filename, 0);
+      }
+    };
+    
+  } catch (err) {
+    console.error("Error al cargar la playlist de más escuchadas:", err);
+  }
+}
+
+async function playMostPlayedList(autoPlay = true) {
+  try {
+    const songs = await window.electronAPI.getMostPlayedSongs();
+    if (!songs || songs.length === 0) {
+      new Notify({
+        status: "warning",
+        title: "Playlist vacía",
+        text: "¡Reproduce canciones en la app para llenar tu playlist!",
+        effect: "fade",
+      });
+      showMostPlayedList(); // Show empty state
+      return;
+    }
+    
+    // Renders the list
+    await showMostPlayedList();
+    
+    // If autoPlay requested, start playing first track immediately
+    if (autoPlay) {
+      queue = songs.map(s => ({
+        title: s.title,
+        uploader: s.uploader,
+        duration: s.duration,
+        thumbnail: s.thumbnail,
+        filename: s.filename || null,
+        url: s.url || null
+      }));
+      renderQueue();
+      playSong(queue[0], !!queue[0].filename, 0);
+    }
+  } catch (err) {
+    console.error("Error al reproducir más escuchadas:", err);
+  }
+}
+
+// Export functions to global scope
+window.showMostPlayedList = showMostPlayedList;
+window.playMostPlayedList = playMostPlayedList;
+window.renderMostPlayedCardCover = renderMostPlayedCardCover;
+
+async function renderMostPlayedCardCover() {
+  try {
+    const coverContainer = document.getElementById("myMostPlayedCover");
+    if (!coverContainer) return;
+    
+    const songs = await window.electronAPI.getMostPlayedSongs();
+    
+    if (!songs || songs.length === 0) {
+      coverContainer.innerHTML = `<img src="resources/player.gif" class="spotify-cover-single">`;
+      return;
+    }
+    
+    const uniqueThumbs = [];
+    for (const song of songs) {
+      if (song.thumbnail && !uniqueThumbs.includes(song.thumbnail)) {
+        uniqueThumbs.push(song.thumbnail);
+      }
+      if (uniqueThumbs.length === 4) break;
+    }
+    
+    if (uniqueThumbs.length >= 4) {
+      coverContainer.innerHTML = `
+        <div class="spotify-cover-collage">
+          <img src="${uniqueThumbs[0]}">
+          <img src="${uniqueThumbs[1]}">
+          <img src="${uniqueThumbs[2]}">
+          <img src="${uniqueThumbs[3]}">
+        </div>
+      `;
+    } else {
+      const primaryCover = uniqueThumbs[0] || "resources/player.gif";
+      coverContainer.innerHTML = `<img src="${primaryCover}" class="spotify-cover-single">`;
+    }
+  } catch (err) {
+    console.error("Error al renderizar la portada de más escuchadas:", err);
+  }
+}
 
 

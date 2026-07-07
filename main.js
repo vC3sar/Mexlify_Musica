@@ -1,7 +1,8 @@
 const DiscordRPC = require("discord-rpc");
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, session, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const sqlite3 = require("sqlite3").verbose();
 const { spawn } = require("child_process");
 const {
   createYtdlpResolver,
@@ -11,7 +12,7 @@ const {
 const fetch = require("node-fetch");
 // Solo estos cambios mínimos para mejorar sin romper nada
 const isDev = !app.isPackaged; // ✅ Auto-detecta entorno (en lugar de hardcodear)
-let debug = true; // ✅ Mantener como variable para poder cambiar
+let debug = isDev; // ✅ Mantener como variable para poder cambiar
 
 function logDebug(...args) {
   if (debug) console.log("[DEBUG]", ...args);
@@ -212,7 +213,153 @@ app.setAboutPanelOptions({
   copyright: "© 2025 VAEN Systems",
 });
 
+// ==================== SQLite DATABASE SYSTEM ====================
+let db = null;
+
+function initDatabase() {
+  const dbPath = path.join(app.getPath("userData"), "mexlify.db");
+  logDebug("Inicializando base de datos SQLite en:", dbPath);
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error("❌ Error al abrir la base de datos:", err.message);
+      return;
+    }
+    logDebug("✅ Conectado a la base de datos SQLite.");
+    
+    // Crear tabla de reproducciones
+    db.run(
+      `CREATE TABLE IF NOT EXISTS play_counts (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        uploader TEXT,
+        thumbnail TEXT,
+        duration INTEGER,
+        url TEXT,
+        filename TEXT,
+        count INTEGER DEFAULT 1
+      )`,
+      (err2) => {
+        if (err2) {
+          console.error("❌ Error al crear la tabla play_counts:", err2.message);
+        } else {
+          logDebug("✅ Tabla play_counts verificada/creada.");
+        }
+      }
+    );
+  });
+}
+
+// Handlers de base de datos
+ipcMain.handle("incrementPlayCount", async (event, song) => {
+  if (!song || !song.title) return false;
+  
+  const key = (song.title + "||" + (song.uploader || "")).toLowerCase();
+  logDebug("Incrementando reproducción de:", song.title, "ID:", key);
+  
+  return new Promise((resolve) => {
+    if (!db) {
+      console.error("Base de datos no inicializada");
+      return resolve(false);
+    }
+    
+    const query = `
+      INSERT INTO play_counts (id, title, uploader, thumbnail, duration, url, filename, count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      ON CONFLICT(id) DO UPDATE SET 
+        count = count + 1,
+        thumbnail = COALESCE(excluded.thumbnail, thumbnail),
+        url = COALESCE(excluded.url, url),
+        filename = COALESCE(excluded.filename, filename)
+    `;
+    
+    const params = [
+      key,
+      song.title,
+      song.uploader || "",
+      song.thumbnail || "",
+      song.duration || 0,
+      song.url || "",
+      song.filename || ""
+    ];
+    
+    db.run(query, params, function (err) {
+      if (err) {
+        console.error("❌ Error al incrementar play count en SQLite:", err.message);
+        resolve(false);
+      } else {
+        logDebug(`✅ Play count actualizado para "${song.title}". Filas afectadas:`, this.changes);
+        resolve(true);
+      }
+    });
+  });
+});
+
+ipcMain.handle("getMostPlayedSongs", async () => {
+  return new Promise((resolve) => {
+    if (!db) {
+      console.error("Base de datos no inicializada");
+      return resolve([]);
+    }
+    
+    const query = `
+      SELECT title, uploader, thumbnail, duration, url, filename, count 
+      FROM play_counts 
+      ORDER BY count DESC 
+      LIMIT 50
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error("❌ Error al obtener canciones más escuchadas de SQLite:", err.message);
+        resolve([]);
+      } else {
+        const formattedRows = rows.map(row => ({
+          title: row.title,
+          uploader: row.uploader,
+          thumbnail: row.thumbnail,
+          duration: row.duration,
+          url: row.url || null,
+          filename: row.filename || null,
+          playCount: row.count
+        }));
+        resolve(formattedRows);
+      }
+    });
+  });
+});
+
 app.whenReady().then(() => {
+  initDatabase();
+  // Copiar cookies.txt a la carpeta userData para el proceso secundario de yt-dlp
+  const cookiesSrcPath = path.join(__dirname, "cookies.txt");
+  const cookiesDestPath = path.join(app.getPath("userData"), "cookies.txt");
+  try {
+    if (fs.existsSync(cookiesSrcPath)) {
+      const destDir = path.dirname(cookiesDestPath);
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      fs.copyFileSync(cookiesSrcPath, cookiesDestPath);
+      logDebug(`[cookies] cookies.txt copiado a: ${cookiesDestPath}`);
+    } else {
+      logDebug(`[cookies] cookies.txt no encontrado en origen: ${cookiesSrcPath}`);
+    }
+  } catch (err) {
+    console.error("❌ [cookies] Error al copiar cookies.txt:", err);
+  }
+
+  // Interceptar cabeceras salientes a googlevideo.com para evitar el error 403 Forbidden
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ["*://*.googlevideo.com/*"] },
+    (details, callback) => {
+      delete details.requestHeaders["Origin"];
+      delete details.requestHeaders["Referer"];
+      details.requestHeaders["User-Agent"] =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+
   const win = createWindow();
   checkYtdlpUpdate(win);
   setTimeout(async () => {
@@ -229,6 +376,8 @@ app.on("window-all-closed", () => {
 const itunesCache = new Map();
 const ytdlpCache = new Map();
 
+const cookiesDestPath = path.join(app.getPath("userData"), "cookies.txt");
+
 const resolverCacheFile = path.join(
   app.getPath("userData"),
   "cache",
@@ -238,6 +387,7 @@ const resolverCacheFile = path.join(
 const ytdlpResolver = createYtdlpResolver({
   getYtdlpPath,
   cacheFile: resolverCacheFile,
+  cookiesFile: cookiesDestPath,
   concurrency: 2,
   timeoutMs: 15000,
   logger: logDebug,
@@ -255,7 +405,12 @@ function normalize(query) {
 function execYtdlp(args = []) {
   return new Promise((resolve, reject) => {
     const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const finalArgs = [...args];
+    const cookiesDestPath = path.join(app.getPath("userData"), "cookies.txt");
+    if (fs.existsSync(cookiesDestPath) && !args.includes("--cookies")) {
+      finalArgs.push("--cookies", cookiesDestPath);
+    }
+    const proc = spawn(ytdlpPath, finalArgs, { stdio: ["pipe", "pipe", "pipe"] });
 
     let stdout = "";
     let stderr = "";
@@ -280,7 +435,12 @@ function execYtdlp(args = []) {
 function execYtdlpDownload(args = []) {
   return new Promise((resolve, reject) => {
     const ytdlpPath = getYtdlpPath();
-    const proc = spawn(ytdlpPath, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const finalArgs = [...args];
+    const cookiesDestPath = path.join(app.getPath("userData"), "cookies.txt");
+    if (fs.existsSync(cookiesDestPath) && !args.includes("--cookies")) {
+      finalArgs.push("--cookies", cookiesDestPath);
+    }
+    const proc = spawn(ytdlpPath, finalArgs, { stdio: ["pipe", "pipe", "pipe"] });
 
     let stderr = "";
 
@@ -749,4 +909,41 @@ ipcMain.handle("get-app-path", async (event, filename) => {
     return path.join(downloadsDir, filename); // C:\...\downloads\song.mp3
   }
   return downloadsDir; // solo la carpeta
+});
+
+ipcMain.handle("exportDownloadsToZip", async (event) => {
+  const win = BrowserWindow.getFocusedWindow();
+  
+  if (!fs.existsSync(downloadsDir)) {
+    return { success: false, error: "No tienes canciones descargadas para exportar." };
+  }
+  const files = fs.readdirSync(downloadsDir).filter(f => f.endsWith(".mp3"));
+  if (files.length === 0) {
+    return { success: false, error: "No tienes canciones descargadas para exportar." };
+  }
+
+  const { filePath } = await dialog.showSaveDialog(win, {
+    title: "Exportar música fuera de línea",
+    defaultPath: path.join(app.getPath("desktop"), "mexlify-musica-offline.zip"),
+    filters: [
+      { name: "Archivo ZIP", extensions: ["zip"] }
+    ]
+  });
+
+  if (!filePath) {
+    return { success: false, error: "Operación cancelada por el usuario" };
+  }
+
+  try {
+    const AdmZip = require("adm-zip");
+    const zip = new AdmZip();
+    
+    zip.addLocalFolder(downloadsDir);
+    zip.writeZip(filePath);
+
+    return { success: true, path: filePath };
+  } catch (err) {
+    console.error("Error al exportar ZIP:", err);
+    return { success: false, error: err.message };
+  }
 });

@@ -150,6 +150,7 @@ function createYtdlpResolver(options) {
   const {
     getYtdlpPath,
     cacheFile,
+    cookiesFile,
     logger = console.log,
     concurrency = DEFAULT_CONCURRENCY,
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -263,8 +264,13 @@ function createYtdlpResolver(options) {
         "-f",
         "bestaudio[ext=m4a]/bestaudio",
         "--get-url",
-        sourceUrl,
       ];
+
+      if (cookiesFile && fs.existsSync(cookiesFile)) {
+        args.push("--cookies", cookiesFile);
+      }
+
+      args.push(sourceUrl);
 
       const startedAt = Date.now();
       const proc = spawn(getYtdlpPath(), args, {

@@ -64,8 +64,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return await ipcRenderer.invoke("deleteDownload", filename);
   },
 
+  exportDownloadsToZip: async () => {
+    return await ipcRenderer.invoke("exportDownloadsToZip");
+  },
+
   openExternal: async (url) => {
     return await ipcRenderer.invoke("open-external", url);
+  },
+
+  // SQLite Database API
+  incrementPlayCount: async (song) => {
+    return await ipcRenderer.invoke("incrementPlayCount", song);
+  },
+
+  getMostPlayedSongs: async () => {
+    return await ipcRenderer.invoke("getMostPlayedSongs");
   },
 
   // Recibir mensajes de actualización de yt-dlp
