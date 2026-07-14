@@ -82,6 +82,8 @@ let recentSongs = [];
 let isResolvingSong = false; // Bandera para bloquear peticiones concurrentes de playSong
 progressBar.disabled = true;
 fcpProgressBar.disabled = true;
+progressBar.style.setProperty('--value', '0%');
+fcpProgressBar.style.setProperty('--value', '0%');
 
 // ======= Utilidades =======
 function debugLog(...args) {
@@ -359,6 +361,7 @@ async function playSong(song, isDownloaded = false, forceIndex = -1) {
     if (queue.length > 0) {
       window.electronAPI.prewarmSongs(queue.slice(0, 1), 1).catch(debugLog);
     }
+    highlightPlayingSong();
   } finally {
     isResolvingSong = false;
   }
@@ -463,6 +466,11 @@ function playNextInQueue() {
 async function loadDownloaded() {
   const downloaded = await window.electronAPI.getDownloaded();
   downloadsList.innerHTML = "";
+
+  const offlineCountBadge = document.getElementById("offlineCountBadge");
+  if (offlineCountBadge) {
+    offlineCountBadge.textContent = `${downloaded.length} guardada${downloaded.length !== 1 ? 's' : ''}`;
+  }
 
   if (downloaded.length === 0) {
     downloadsList.innerHTML = "<li>No hay descargas aún</li>";
@@ -572,11 +580,13 @@ async function loadDownloaded() {
       });
     });
   });
+  highlightPlayingSong();
 }
 
 // ======= Búsqueda =======
 async function searchSongDirectPlay(query = "") {
   const genreEl = document.getElementById("songGenre");
+  const searchResultsHeader = document.getElementById("searchResultsHeader");
   navigateTo("search");
 
   if (!query) {
@@ -586,6 +596,7 @@ async function searchSongDirectPlay(query = "") {
   }
   if (!query) return;
   resultsList.innerHTML = "<li>Buscando...</li>";
+  if (searchResultsHeader) searchResultsHeader.style.display = "none";
   try {
     const results = await window.electronAPI.searchSong(cleanQuery(query));
     resultsList.innerHTML = "";
@@ -593,6 +604,7 @@ async function searchSongDirectPlay(query = "") {
     if (results.length === 0) {
       resultsList.innerHTML = "<li>No se encontraron canciones</li>";
       if (genreEl) genreEl.textContent = "";
+      if (searchResultsHeader) searchResultsHeader.style.display = "none";
       return;
     }
 
@@ -616,6 +628,8 @@ async function searchSongDirectPlay(query = "") {
         : "";
       genreEl.style.display = results[0].genre ? "block" : "none";
     }
+
+    if (searchResultsHeader) searchResultsHeader.style.display = "flex";
 
     results.forEach((song) => {
       const li = document.createElement("li");
@@ -710,6 +724,7 @@ async function searchSongDirectPlay(query = "") {
   } catch (err) {
     resultsList.innerHTML = "<li>Error al buscar canciones</li>";
     if (genreEl) genreEl.textContent = "";
+    if (searchResultsHeader) searchResultsHeader.style.display = "none";
     debugLog("Error searchSongDirectPlay:", err);
     console.dir(err);
   }
@@ -722,12 +737,20 @@ async function searchSongs() {
   }
   navigateTo("search");
 
+  const searchResultsHeader = document.getElementById("searchResultsHeader");
   const query = searchInput.value.trim();
   if (!query) return;
   resultsList.innerHTML = "<li>Buscando...</li>";
+  if (searchResultsHeader) searchResultsHeader.style.display = "none";
   try {
     const results = await window.electronAPI.searchSong(cleanQuery(query));
     resultsList.innerHTML = "";
+    if (results.length > 0) {
+      if (searchResultsHeader) searchResultsHeader.style.display = "flex";
+    } else {
+      resultsList.innerHTML = "<li>No se encontraron canciones</li>";
+      if (searchResultsHeader) searchResultsHeader.style.display = "none";
+    }
     results.forEach((song) => {
       const li = document.createElement("li");
       li.innerHTML = `
@@ -867,8 +890,10 @@ async function searchSongs() {
         });
       });
     });
+    highlightPlayingSong();
   } catch (err) {
     resultsList.innerHTML = "<li>Error al buscar canciones</li>";
+    if (searchResultsHeader) searchResultsHeader.style.display = "none";
     debugLog("Error searchSong:", err);
     console.dir(err);
   }
@@ -1083,9 +1108,13 @@ player.addEventListener("ended", () => {
     "https://i.ibb.co/CKrdcJTT/logo-app-mexlify-center.png";
   playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
   fcp_playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
+  const repText = document.querySelector('.reproduciendo-text-container');
+  if (repText) repText.classList.remove('active');
   if (!isRepeating) currentAudio = null;
   progressBar.value = 0;
+  progressBar.style.setProperty('--value', '0%');
   fcpProgressBar.value = 0;
+  fcpProgressBar.style.setProperty('--value', '0%');
   currentTimeEl.textContent = "0:00";
   fcpCurrentTimeEl.textContent = "0:00";
   setTimeout(async () => {
@@ -1114,16 +1143,20 @@ player.addEventListener("loadedmetadata", () => {
 
 progressBar.addEventListener("input", () => {
   if (!player.duration) return;
+  progressBar.style.setProperty('--value', `${progressBar.value}%`);
   player.currentTime = (progressBar.value / 100) * player.duration;
 });
 fcpProgressBar.addEventListener("input", () => {
   if (!player.duration) return;
+  fcpProgressBar.style.setProperty('--value', `${fcpProgressBar.value}%`);
   player.currentTime = (fcpProgressBar.value / 100) * player.duration;
 });
 
 player.addEventListener("play", () => {
   playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
   fcp_playPauseBtn.innerHTML = '<i class="ph ph-pause"></i>';
+  const repText = document.querySelector('.reproduciendo-text-container');
+  if (repText) repText.classList.add('active');
   setTimeout(async () => {
     await window.electronAPI.setDiscordActivity(
       `En reproducción | (${formatTime(player.duration)})`,
@@ -1146,6 +1179,8 @@ player.addEventListener("pause", () => {
   }, 5 * 1000);
   playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
   fcp_playPauseBtn.innerHTML = '<i class="ph ph-play"></i>';
+  const repText = document.querySelector('.reproduciendo-text-container');
+  if (repText) repText.classList.remove('active');
 });
 
 let lastDisplayedSecond = -1;
@@ -1164,15 +1199,20 @@ player.addEventListener("timeupdate", () => {
     const currentSecond = Math.floor(currentTime);
     if (currentSecond !== lastDisplayedSecond) {
       lastDisplayedSecond = currentSecond;
-      progressBar.value = (currentTime / duration) * 100;
-      fcpProgressBar.value = (currentTime / duration) * 100;
+      const percent = (currentTime / duration) * 100;
+      progressBar.value = percent;
+      progressBar.style.setProperty('--value', `${percent}%`);
+      fcpProgressBar.value = percent;
+      fcpProgressBar.style.setProperty('--value', `${percent}%`);
       currentTimeEl.textContent = formatTime(currentTime);
       fcpCurrentTimeEl.textContent = formatTime(currentTime);
     }
   } else {
     if (lastDisplayedSecond !== -1) {
       progressBar.value = 0;
+      progressBar.style.setProperty('--value', '0%');
       fcpProgressBar.value = 0;
+      fcpProgressBar.style.setProperty('--value', '0%');
       currentTimeEl.textContent = "0:00";
       fcpCurrentTimeEl.textContent = "0:00";
       lastDisplayedSecond = -1;
@@ -1276,6 +1316,9 @@ searchInput.addEventListener("input", () => {
       player.volume = lastVolume;
       volumeSlider.value = lastVolume;
       fcp_volumeSlider.value = lastVolume;
+      const percent = (lastVolume / 0.95) * 100;
+      volumeSlider.style.setProperty('--value', `${percent}%`);
+      fcp_volumeSlider.style.setProperty('--value', `${percent}%`);
       muteBtn.innerHTML =
         '<i style="font-size: larger;" class="ph ph-speaker-high"></i>';
       fcp_muteBtn.innerHTML =
@@ -1286,7 +1329,9 @@ searchInput.addEventListener("input", () => {
       lastVolume = player.volume;
       player.volume = 0;
       volumeSlider.value = 0;
+      volumeSlider.style.setProperty('--value', '0%');
       fcp_volumeSlider.value = 0;
+      fcp_volumeSlider.style.setProperty('--value', '0%');
       muteBtn.innerHTML =
         '<i style="font-size: larger;" class="ph ph-speaker-simple-slash"></i>';
       fcp_muteBtn.innerHTML =
@@ -1323,10 +1368,13 @@ volumeSliders.forEach((slider) => {
 
 function handleVolumeChange(e) {
   const value = parseFloat(e.target.value);
+  const percent = (value / 0.95) * 100;
 
   // Cambia ambos sliders y ambos players
   volumeSlider.value = value;
+  volumeSlider.style.setProperty('--value', `${percent}%`);
   fcp_volumeSlider.value = value;
+  fcp_volumeSlider.style.setProperty('--value', `${percent}%`);
   player.volume = value;
 
   // Guardar volumen antes de mutear
@@ -1438,6 +1486,7 @@ function navigateTo(view) {
       renderPlaylists();
       break;
   }
+  highlightPlayingSong();
 }
 
 // ======= Listeners de navegación (navbar y sidebar) =======
@@ -1480,6 +1529,11 @@ function renderRecents() {
   const recentsList = document.getElementById("recentsList");
   if (!recentsList) return;
   recentsList.innerHTML = "";
+
+  const recentsCountBadge = document.getElementById("recentsCountBadge");
+  if (recentsCountBadge) {
+    recentsCountBadge.textContent = `${recentSongs.length} reproducida${recentSongs.length !== 1 ? 's' : ''}`;
+  }
 
   if (recentSongs.length === 0) {
     recentsList.innerHTML = "<li style='color: rgba(255,255,255,0.6); padding: 20px; text-align: center; font-family: Poppins, sans-serif;'>No has reproducido ninguna canción en esta sesión aún.</li>";
@@ -1537,6 +1591,7 @@ function renderRecents() {
 
     li.querySelector(".queue").addEventListener("click", () => addToQueue(song));
   });
+  highlightPlayingSong();
 }
 
 // ======= Queue Drawer =======
@@ -1811,6 +1866,11 @@ function renderPlaylistSongs(pl) {
   if (!playlistSongsList) return;
   playlistSongsList.innerHTML = "";
 
+  const playlistMetaCount = document.getElementById("playlistMetaCount");
+  if (playlistMetaCount) {
+    playlistMetaCount.textContent = `${pl.songs.length} canción${pl.songs.length !== 1 ? 'es' : ''}`;
+  }
+
   if (pl.songs.length === 0) {
     playlistSongsList.innerHTML = `
       <div class="messages-empty-state">
@@ -1887,6 +1947,7 @@ function renderPlaylistSongs(pl) {
       });
     }
   });
+  highlightPlayingSong();
 }
 
 // ---- Play entire playlist ----
@@ -2380,5 +2441,106 @@ async function renderMostPlayedCardCover() {
     console.error("Error al renderizar la portada de más escuchadas:", err);
   }
 }
+
+// ======= Funciones de Rediseño Premium (Mexlify UI/UX) =======
+
+/**
+ * highlightPlayingSong - Busca en todas las listas la canción actualmente reproducida y le añade clases/visualizador.
+ */
+function highlightPlayingSong() {
+  const currentTitle = currentSong ? (currentSong.title || currentSong.Title || "").toLowerCase() : "";
+  if (!currentTitle) return;
+
+  const lists = ["#resultsList", "#downloadsList", "#recentsList", "#playlistSongsList"];
+  lists.forEach((listId) => {
+    const list = document.querySelector(listId);
+    if (!list) return;
+    const items = list.querySelectorAll("li");
+    items.forEach((li) => {
+      const bTag = li.querySelector(".song-info b");
+      if (bTag) {
+        const titleText = bTag.textContent.toLowerCase();
+        if (titleText === currentTitle) {
+          li.classList.add("is-playing");
+          if (!li.querySelector(".active-playing-indicator")) {
+            const indicator = document.createElement("div");
+            indicator.className = "active-playing-indicator";
+            indicator.innerHTML = `
+              <span class="bar bar1"></span>
+              <span class="bar bar2"></span>
+              <span class="bar bar3"></span>
+              <span class="bar bar4"></span>
+            `;
+            const infoContainer = li.querySelector(".song-info");
+            if (infoContainer) {
+              infoContainer.appendChild(indicator);
+            }
+          }
+        } else {
+          li.classList.remove("is-playing");
+          const indicator = li.querySelector(".active-playing-indicator");
+          if (indicator) indicator.remove();
+        }
+      }
+    });
+  });
+}
+
+// Inicialización de escuchadores interactivos al cargar el DOM
+document.addEventListener("DOMContentLoaded", () => {
+  // 2. Filtro local para descargas
+  const offlineFilterInput = document.getElementById("offlineFilterInput");
+  if (offlineFilterInput) {
+    offlineFilterInput.addEventListener("input", () => {
+      const query = offlineFilterInput.value.toLowerCase().trim();
+      const items = downloadsList.querySelectorAll("li");
+      items.forEach((item) => {
+        const titleElement = item.querySelector(".song-info b");
+        const infoElement = item.querySelector(".song-info");
+        const titleText = titleElement ? titleElement.textContent.toLowerCase() : "";
+        const infoText = infoElement ? infoElement.textContent.toLowerCase() : "";
+        
+        if (titleText.includes(query) || infoText.includes(query)) {
+          item.style.display = "";
+        } else {
+          item.style.display = "none";
+        }
+      });
+    });
+  }
+
+  // 3. Botón para limpiar historial de recents
+  const clearRecentsBtn = document.getElementById("clearRecentsBtn");
+  if (clearRecentsBtn) {
+    clearRecentsBtn.addEventListener("click", () => {
+      recentSongs = [];
+      renderRecents();
+      new Notify({
+        status: "success",
+        title: "Historial Limpiado",
+        text: "Se ha vaciado la lista de canciones recientes.",
+        effect: "fade",
+        autotimeout: 2500
+      });
+    });
+  }
+
+  // 4. Color pickers sincronizados con etiquetas hex
+  const color1Input = document.getElementById("color1");
+  const color2Input = document.getElementById("color2");
+  const color1HexLabel = document.getElementById("color1Hex");
+  const color2HexLabel = document.getElementById("color2Hex");
+
+  if (color1Input && color1HexLabel) {
+    color1Input.addEventListener("input", () => {
+      color1HexLabel.textContent = color1Input.value.toUpperCase();
+    });
+  }
+  if (color2Input && color2HexLabel) {
+    color2Input.addEventListener("input", () => {
+      color2HexLabel.textContent = color2Input.value.toUpperCase();
+    });
+  }
+});
 
 

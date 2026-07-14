@@ -169,16 +169,26 @@
                 <div class="tab-content">
                     <!-- Pestaña Buscar -->
                     <div id="searchContainer" class="view-section">
-                        <!-- Barra de búsqueda -->
-                        <div id="searchBar" style="position: relative; width: 60%; margin-bottom: 12px;">
-                            <input id="searchInput" placeholder="Buscar canción">
-                            <span class="searchIcon">🔍</span>
+                        <!-- Rediseño Premium del Buscador -->
+                        <div class="search-hero-card glass-box-premium">
+                            <div class="search-title-row">
+                                <i class="ph-fill ph-sparkle glow-pink"></i>
+                                <span>Buscar canciones</span>
+                            </div>
+                            <div id="searchBar" class="premium-search-bar">
+                                <span class="searchIcon"><i class="ph ph-magnifying-glass"></i></span>
+                                <input id="searchInput" placeholder="¿Qué canción quieres escuchar hoy?">
+                                <button id="searchButton" class="search-action-btn"><i class="ph ph-magnifying-glass"></i></button>
+                            </div>
+                            
+
+                            <span class="search-tip-label">
+                                <i class="ph ph-lightbulb"></i>
+                                <strong>Tip:</strong> Para búsquedas más precisas, añade el autor de la canción.
+                            </span>
                         </div>
-                        <span class="search-tip-label">
-                            <i class="ph ph-lightbulb"></i>
-                            Tip: Para búsquedas más precisas, añade el autor de la canción.
-                        </span>
-                        <div class="ListHeader">
+
+                        <div class="ListHeader" id="searchResultsHeader" style="display: none;">
                             <h2>Resultados</h2>
                         </div>
                         <ul id="resultsList">
@@ -189,11 +199,21 @@
                     <!-- Pestaña Descargas -->
                     <div id="downloadsContainer" class="view-section is-hidden">
                         <div class="ListHeader">
-                            <h2>Fuera de línea</h2>
+                            <div class="header-title-group">
+                                <h2>Fuera de línea</h2>
+                                <span class="stat-badge" id="offlineCountBadge">0 guardadas</span>
+                            </div>
                             <button id="exportZipBtn" class="changeBg" style="margin: 0; padding: 8px 16px;">
                                 <i class="ph ph-file-zip"></i> Exportar a ZIP
                             </button>
                         </div>
+
+                        <!-- Filtro local interactivo para descargas -->
+                        <div class="local-filter-bar">
+                            <i class="ph ph-funnel"></i>
+                            <input id="offlineFilterInput" placeholder="Filtrar por título o artista en tus descargas...">
+                        </div>
+
                         <ul id="downloadsList">
                             <!-- Aquí se cargarán las descargas -->
                         </ul>
@@ -202,7 +222,13 @@
                     <!-- Pestaña Recientes -->
                     <div id="recentsContainer" class="view-section is-hidden">
                         <div class="ListHeader">
-                            <h2>Recientes (Sesión actual)</h2>
+                            <div class="header-title-group">
+                                <h2>Recientes (Sesión actual)</h2>
+                                <span class="stat-badge" id="recentsCountBadge">0 reproducidas</span>
+                            </div>
+                            <button id="clearRecentsBtn" class="changeBg" style="margin: 0; padding: 8px 16px;">
+                                <i class="ph ph-trash"></i> Limpiar Historial
+                            </button>
                         </div>
                         <ul id="recentsList">
                             <!-- Aquí se cargarán las canciones reproducidas recientemente -->
@@ -214,21 +240,28 @@
                         <div class="ListHeader">
                             <h2>Mis Playlists</h2>
                         </div>
-                        <div class="playlist-create-row">
-                            <input id="playlistNameInput" placeholder="Nombre de la nueva playlist">
+                        
+                        <!-- Panel de creación rediseñado -->
+                        <div class="playlist-create-row premium-create-card glass-box-premium">
+                            <div class="create-card-left">
+                                <i class="ph ph-playlist glow-pink" style="font-size: 1.3rem;"></i>
+                                <input id="playlistNameInput" placeholder="Nombre de la nueva playlist">
+                            </div>
                             <button id="createPlaylistBtn" class="changeBg"><i class="ph ph-plus"></i> Crear</button>
                         </div>
+
                         <div class="playlists-grid" id="playlistsGrid">
                             <!-- Aquí se cargarán las tarjetas de las playlists creadas -->
                         </div>
+                        
                         <div id="playlistDetailView" class="playlist-detail-view is-hidden">
-                            <div class="playlist-detail-header">
-                                <button id="backToPlaylistsBtn" class="backtop"
-                                    style="display: inline-block; width: auto; margin: 0; padding: 8px 16px;"><i
-                                        class="ph ph-arrow-left"></i> Volver</button>
-                                <h3 id="currentPlaylistTitle" style="margin: 0;">Nombre de la Playlist</h3>
-                                <button id="playPlaylistBtn" class="changeBg" style="margin: 0; padding: 8px 16px;"><i
-                                        class="ph ph-play"></i> Reproducir Todo</button>
+                            <div class="playlist-detail-header-premium">
+                                <button id="backToPlaylistsBtn" class="backtop-premium"><i class="ph ph-arrow-left"></i> Volver</button>
+                                <div class="playlist-detail-meta">
+                                    <h3 id="currentPlaylistTitle">Nombre de la Playlist</h3>
+                                    <span class="playlist-meta-count" id="playlistMetaCount">0 canciones</span>
+                                </div>
+                                <button id="playPlaylistBtn" class="changeBg" style="margin: 0; padding: 8px 16px;"><i class="ph ph-play"></i> Reproducir Todo</button>
                             </div>
                             <ul id="playlistSongsList" class="song-list">
                                 <!-- Canciones de la playlist actual -->
@@ -241,136 +274,186 @@
                         <div class="ListHeader">
                             <h2>Ajustes</h2>
                         </div>
-                        <!-- Sub-tabs de Ajustes -->
+                        <!-- Sub-tabs de Ajustes estilo Pill -->
                         <div class="tabsSettings">
-                            <button class="tablinkSettings" onclick="settings.openTab('tabGeneral', this)"
-                                id="defaultTab">General</button>
-                            <button class="tablinkSettings"
-                                onclick="settings.openTab('tabTheme', this)">Personalización</button>
+                            <button class="tablinkSettings active is-active" onclick="settings.openTab('tabGeneral', this)" id="defaultTab">
+                                <i class="ph ph-sliders"></i> General
+                            </button>
+                            <button class="tablinkSettings" onclick="settings.openTab('tabTheme', this)">
+                                <i class="ph ph-paint-brush"></i> Personalización
+                            </button>
                         </div>
+                        
                         <!-- Tab General -->
-                        <div id="tabGeneral" class="is-hidden">
-                            <div id="autoPlayRandom" class="settings-option">
-                                <div class="glass-control-ra">
-                                    <label for="autoplay" class="glass-label-ra">Reproducción automática</label>
-                                    <br>
-                                    <small class="small-ra">Si está activado, al terminar una canción se reproducirá
-                                        automaticamente otra canción aleatoria.</small>
-                                    <label class="switch-ra">
-                                        <input class="checkbox-ra" type="checkbox" id="autoplay" name="autoplay"
-                                            checked>
-                                        <span class="slider-ra"></span>
-                                    </label>
-                                    <hr>
-                                    <small class="small-ra" style="color: #888;">Algunos cambios solo surten efecto
-                                        después de reiniciar la aplicación.</small>
+                        <div id="tabGeneral" class="settings-group-container">
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-gear"></i>
+                                    <h3>Reproducción y Sistema</h3>
+                                </div>
+                                
+                                <div id="autoPlayRandom" class="settings-row">
+                                    <div class="settings-info">
+                                        <span class="settings-label">Reproducción automática</span>
+                                        <small class="settings-desc">Al terminar una canción se reproducirá automáticamente otra aleatoria.</small>
+                                    </div>
+                                    <div class="settings-control">
+                                        <label class="switch-ra">
+                                            <input class="checkbox-ra" type="checkbox" id="autoplay" name="autoplay" checked>
+                                            <span class="slider-ra"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="settings-row">
+                                    <div class="settings-info">
+                                        <span class="settings-label">Calidad de audio</span>
+                                        <small class="settings-desc">Selecciona la calidad de audio predeterminada para la reproducción.</small>
+                                    </div>
+                                    <div class="settings-control">
+                                        <select id="audioQuality" name="audioQuality" class="glass-select-premium">
+                                            <option value="low" disabled>Baja (64 kbps)</option>
+                                            <option value="medium" disabled>Media (128 kbps)</option>
+                                            <option value="high" selected>Alta (256 kbps)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="settings-row note-row">
+                                    <small class="settings-note"><i class="ph ph-info"></i> Nota: La reproducción se reproducirá en la mejor calidad disponible. Por el momento, solo se admite la calidad alta.</small>
                                 </div>
                             </div>
-                            <hr>
-                            <div id="quality-audio">
-                                <div class="glass-control-ra">
-                                    <label for="audioQuality" class="glass-label-ra">Calidad de audio</label>
-                                    <br>
-                                    <small class="small-ra">Selecciona la calidad de audio predeterminada para la
-                                        reproducción.</small>
-                                    <select id="audioQuality" name="audioQuality"
-                                        class="glass-audio-quality glass-select">
-                                        <option value="low" disabled>Baja (64 kbps)</option>
-                                        <option value="medium" disabled>Media (128 kbps)</option>
-                                        <option value="high" selected>Alta (256 kbps)</option>
-                                    </select>
-                                    <hr>
-                                    <span class="small-ra" style="color:#888">La reproducción se reproducirá en la mejor
-                                        calidad disponible. Por el momento,
-                                        solo se admite la calidad alta.</span>
+                            
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-sliders-horizontal"></i>
+                                    <h3>Ecualizador (BETA)</h3>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="settings-info">
+                                        <span class="settings-label">EQ Presets</span>
+                                        <small class="settings-desc">Selecciona un preset de ecualización. Se aplicará al audio en tiempo real.</small>
+                                    </div>
+                                    <div class="settings-control">
+                                        <select id="presets" class="glass-select-premium">
+                                            <option value="flat">Plano</option>
+                                            <option value="bassBoost">Refuerzo de Bajos</option>
+                                            <option value="trebleBoost">Refuerzo de Agudos</option>
+                                            <option value="vocal">Vocal Suave</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="settings-row note-row">
+                                    <small class="settings-note"><i class="ph ph-info"></i> Puedes personalizar el ecualizador en la sección de ecualizador avanzado. (Próximamente)</small>
                                 </div>
                             </div>
-                            <hr>
-                            <div class="eqPresets">
-                                <div class="glass-control-ra">
-                                    <label for="presets" class="glass-label-ra">EQ Presets: <small
-                                            class="small-info">(BETA)</small></label>
-                                    <small class="small-ra">Selecciona un preset de ecualización. (Los cambios se
-                                        aplicarán al audio en tiempo real)</small>
-                                    <select id="presets" class="glass-audio-quality glass-select">
-                                        <option value="flat">Plano</option>
-                                        <option value="bassBoost">Refuerzo de Bajos</option>
-                                        <option value="trebleBoost">Refuerzo de Agudos</option>
-                                        <option value="vocal">Vocal Suave</option>
-                                    </select>
-                                    <hr>
-                                    <span class="small-ra" style="color:#888">Puedes personalizar el ecualizador en la
-                                        sección de ecualizador avanzado. (Próximamente)</span>
+                            
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-microphone"></i>
+                                    <h3>Asistente de Voz (BETA)</h3>
                                 </div>
-                            </div>
-                            <hr>
-                            <div class="appVoice settings-option">
-                                <div class="glass-control-ra">
-                                    <label for="appVoiceSelect" class="glass-label-ra">Voz de la aplicación <small
-                                            class="small-info">(BETA)</small></label>
-                                    <br>
-                                    <button id="toggleVoiceBtn" class="changeBg">Activar</button><br>
-                                    <small class="small-info" id="voiceLabel">Voz desactivada</small>
-                                    <small class="small-ra">Selecciona la voz que usará la aplicación para los
-                                        mensajes de voz.</small>
-                                    <select id="appVoiceSelect" name="appVoiceSelect"
-                                        class="glass-audio-quality glass-select">
-                                        <option value="spanish" selected>Español (México)</option>
-                                        <option value="english" disabled>Inglés (US) (Próximamente)</option>
-                                    </select>
-                                    <hr>
-                                    <span class="small-ra" style="color:#888">Puedes probar la voz seleccionada
-                                        haciendo clic en el botón "Probar Voz".</span><br>
-                                    <button id="testVoiceBtn" class="changeBg">Probar Voz</button>
+                                <div class="settings-row">
+                                    <div class="settings-info">
+                                        <span class="settings-label">Estado de la voz</span>
+                                        <small class="settings-desc">Activa el anuncio de canciones mediante voz sintética.</small>
+                                    </div>
+                                    <div class="settings-control btn-group-vertical">
+                                        <button id="toggleVoiceBtn" class="changeBg">Activar</button>
+                                        <small class="small-info-new" id="voiceLabel">Voz desactivada</small>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="settings-info">
+                                        <span class="settings-label">Idioma / Voz</span>
+                                        <small class="settings-desc">Elige el idioma del narrador.</small>
+                                    </div>
+                                    <div class="settings-control">
+                                        <select id="appVoiceSelect" name="appVoiceSelect" class="glass-select-premium">
+                                            <option value="spanish" selected>Español (México)</option>
+                                            <option value="english" disabled>Inglés (US) (Próximamente)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="settings-row buttons-row">
+                                    <button id="testVoiceBtn" class="changeBg"><i class="ph ph-play-circle"></i> Probar Voz</button>
                                 </div>
                             </div>
                         </div>
+                        
                         <!-- Tab Personalización -->
-                        <div id="tabTheme" class="is-hidden">
-                            <div class="settings-option">
-                                <label for="backgroundIMGonPlayCard">Fondo en la tarjeta de reproducción</label>
-                                <br>
-                                <small class="small-info">Si está desactivado, el fondo de la tarjeta de
-                                    reproducción
-                                    será
-                                    un color sólido.</small><br>
-                                <input id="imgInput" class="bgInput" placeholder="Pega la URL aquí"><br>
-                                <button id="setImgBtn" class="changeBg">Cambiar Fondo</button>
-                                <button id="removeImgBtn" class="changeBg">Eliminar Fondo</button>
-                            </div>
-                            <hr>
-                            <div class="settings-option">
-                                <label for="backgroundIMGonCenter">Panel central</label>
-                                <br>
-                                <small class="small-info">Si no hay una url, se usará un color de fondo
-                                    predeterminado.</small><br>
-                                <input id="bgInput" class="bgInput" placeholder="Pega la URL aquí"><br>
-                                <button id="changeBg" class="changeBg">Cambiar Fondo</button>
-                                <button id="removeBg" class="changeBg">Eliminar Fondo</button>
-                            </div>
-                            <hr>
-                            <div class="theme">
-                                <div class="controls-theme">
-                                    <div id="gradientControls">
-                                        <label for="headerGradient" class="headerGradient">Tema (Fondo
-                                            degradado)</label>
-                                        <div class="color-inputs">
-                                            <label>Principal: </label><input type="color" id="color1" value="#080014">
-                                            <label>Secundario: </label><input type="color" id="color2" value="#080014">
-                                        </div>
-                                        <button class="changeBg"
-                                            onclick="gradientController.setGradient()">Actualizar</button>
-                                        <button class="changeBg" id="getCurrentGradientBtn"
-                                            onclick="gradientController.logCurrentGradient(false)">Obtener
-                                            Actual</button>
-                                        <button class="changeBg" id="resetGradientBtn"
-                                            onclick="gradientController.logCurrentGradient(true)">Restablecer</button>
+                        <div id="tabTheme" class="settings-group-container is-hidden">
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-image"></i>
+                                    <h3>Fondo en Tarjeta de Reproducción</h3>
+                                </div>
+                                <div class="settings-row vertical-layout">
+                                    <div class="settings-info">
+                                        <small class="settings-desc">Si está desactivado, el fondo de la tarjeta de reproducción será un color sólido (dinámico de la portada).</small>
                                     </div>
-                                    <hr>
-                                    <span class="small-info">Recomendamos colores oscuros para un mejor
-                                        contraste.</span>
+                                    <div class="settings-input-group">
+                                        <input id="imgInput" class="bgInput-new" placeholder="Pega la URL de la imagen aquí">
+                                        <div class="action-buttons-row">
+                                            <button id="setImgBtn" class="changeBg">Cambiar Fondo</button>
+                                            <button id="removeImgBtn" class="changeBg">Eliminar Fondo</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-layout"></i>
+                                    <h3>Fondo de Panel Central</h3>
+                                </div>
+                                <div class="settings-row vertical-layout">
+                                    <div class="settings-info">
+                                        <small class="settings-desc">Pega una URL de imagen para establecer el fondo del panel principal. Deja vacío para usar el tema base.</small>
+                                    </div>
+                                    <div class="settings-input-group">
+                                        <input id="bgInput" class="bgInput-new" placeholder="Pega la URL de la imagen aquí">
+                                        <div class="action-buttons-row">
+                                            <button id="changeBg" class="changeBg">Cambiar Fondo</button>
+                                            <button id="removeBg" class="changeBg">Eliminar Fondo</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-card glass-box-premium">
+                                <div class="settings-card-header">
+                                    <i class="ph ph-palette"></i>
+                                    <h3>Tema de la Aplicación (Degradado)</h3>
+                                </div>
+                                <div class="settings-row vertical-layout">
+                                    <div class="color-picker-grid">
+                                        <div class="color-picker-col">
+                                            <label class="color-label">Color Principal</label>
+                                            <div class="color-input-wrapper">
+                                                <input type="color" id="color1" value="#080014">
+                                                <span class="color-hex-preview" id="color1Hex">#080014</span>
+                                            </div>
+                                        </div>
+                                        <div class="color-picker-col">
+                                            <label class="color-label">Color Secundario</label>
+                                            <div class="color-input-wrapper">
+                                                <input type="color" id="color2" value="#080014">
+                                                <span class="color-hex-preview" id="color2Hex">#080014</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="action-buttons-row theme-controls">
+                                        <button class="changeBg" onclick="gradientController.setGradient()"><i class="ph ph-check"></i> Actualizar</button>
+                                        <button class="changeBg" id="getCurrentGradientBtn" onclick="gradientController.logCurrentGradient(false)"><i class="ph ph-info"></i> Obtener Actual</button>
+                                        <button class="changeBg" id="resetGradientBtn" onclick="gradientController.logCurrentGradient(true)"><i class="ph ph-arrows-counter-clockwise"></i> Restablecer</button>
+                                    </div>
+                                    <div class="settings-row note-row">
+                                        <small class="settings-note"><i class="ph ph-info"></i> Recomendamos colores oscuros para un mejor contraste y visualización del texto.</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div id="sidebarElements" class="settings-option">
                                 <!-- Opciones de elementos para la barra lateral del reproductor -->
                             </div>
@@ -407,6 +490,9 @@
                             <div class="progress-bar-wrapper">
                                 <input type="range" id="progressBar" min="0" max="100" value="0"
                                     step="0.001" disabled>
+                            </div>
+                            <div class="reproduciendo-text-container">
+                                <span id="reproduciendoText" class="reproduciendo-text">REPRODUCIENDO</span>
                             </div>
                         </div>
 
